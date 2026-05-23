@@ -1,0 +1,196 @@
+m255
+K4
+z2
+Z0 !s12c _opt
+Z1 !s99 nomlopt
+R0
+R1
+R0
+R1
+R0
+R1
+R0
+R1
+R0
+R1
+R0
+R1
+R0
+R1
+!s11e MIXED_VERSIONS
+13
+!s112 1.1
+!i10d 8192
+!i10e 25
+!i10f 100
+cModel Technology
+Z2 dC:/Users/Ameen/Desktop/digital_design/uart_axi/questasim
+T_opt
+!i145 1
+!i144 0
+!s110 1778608875
+VZSKAI66UcDf8]GL<ez3KJ2
+04 14 3 work tb_rmii_mac_rx sim 1
+=4-3c22fbb2b956-6a036aea-312-44dc
+R1
+!s12f OEM100
+!s12b OEM100
+!s124 OEM10U2 
+!s135 nogc
+o-quiet -auto_acc_if_foreign -work work +acc
+tCvgOpt 0 defaultOptions 1107585188
+n@_opt
+OL;O;2025.2;82
+R2
+Eeth_rx_axil
+Z3 w1778642386
+Z4 DPx3 std 6 textio 0 22 zE1`LPoLg^DX3Oz^4Fj1K3
+Z5 DPx4 ieee 14 std_logic_1164 0 22 cVAk:aDinOX8^VGI1ekP<3
+!i122 20
+Z6 dC:/Users/Ameen/Desktop/digital_design/rmii_ethernet/questasim
+Z7 8C:/Users/Ameen/Desktop/digital_design/rmii_ethernet/src/eth_rx_axil.vhd
+Z8 FC:/Users/Ameen/Desktop/digital_design/rmii_ethernet/src/eth_rx_axil.vhd
+l0
+L4 1
+VScHl6Q]Z1eC0AfY2RXO=Y0
+!s100 Va[l_m8UboIYCmW2TcQ6K0
+Z9 OL;C;2025.2;82
+33
+Z10 !s110 1779045651
+!i10b 1
+Z11 !s108 1779045651.000000
+Z12 !s90 -reportprogress|300|-work|work|-2008|-explicit|-vopt|-stats=none|C:/Users/Ameen/Desktop/digital_design/rmii_ethernet/src/eth_rx_axil.vhd|
+!s107 C:/Users/Ameen/Desktop/digital_design/rmii_ethernet/src/eth_rx_axil.vhd|
+!i113 0
+Z13 o-work work -2008 -explicit
+Z14 tExplicit 1 CvgOpt 0 defaultOptions 1083072464
+Artl
+R4
+R5
+DEx4 work 11 eth_rx_axil 0 22 ScHl6Q]Z1eC0AfY2RXO=Y0
+!i122 20
+l100
+Z15 L49 223
+VHaAW:;KOK^2m@3zQzJ18Q2
+Z16 !s100 gD2bCO0gJ]?Dlhhno7nRJ3
+R9
+33
+R10
+!i10b 1
+R11
+R12
+Z17 !s107 C:/Users/Ameen/Desktop/digital_design/rmii_ethernet/src/eth_rx_axil.vhd|
+!i113 0
+R13
+R14
+Ermii_mac_rx
+Z18 w1778520623
+Z19 DPx4 ieee 11 numeric_std 0 22 aU^R8eGcicLcUFIaBQSL>3
+R4
+R5
+!i122 16
+R6
+Z20 8C:/Users/Ameen/Desktop/digital_design/rmii_ethernet/src/rmii_mac_rx.vhd
+Z21 FC:/Users/Ameen/Desktop/digital_design/rmii_ethernet/src/rmii_mac_rx.vhd
+l0
+L5 1
+VgWg<A1Kz4]IM]^>T34LUU0
+!s100 @2GFRFoo3nLiQ=ij72DWJ3
+R9
+33
+Z22 !s110 1779045527
+!i10b 1
+Z23 !s108 1779045527.000000
+Z24 !s90 -reportprogress|300|-work|work|-2008|-explicit|-vopt|-stats=none|C:/Users/Ameen/Desktop/digital_design/rmii_ethernet/src/rmii_mac_rx.vhd|
+Z25 !s107 C:/Users/Ameen/Desktop/digital_design/rmii_ethernet/src/rmii_mac_rx.vhd|
+!i113 0
+R13
+R14
+Artl
+R19
+R4
+R5
+DEx4 work 11 rmii_mac_rx 0 22 gWg<A1Kz4]IM]^>T34LUU0
+!i122 16
+l80
+L19 305
+V[A7banHjI6IFcIBf`GANe3
+!s100 mFj<C<AYNSFFSM=<BM_m`1
+R9
+33
+R22
+!i10b 1
+R23
+R24
+R25
+!i113 0
+R13
+R14
+Etb_eth_rx
+w1779044693
+R19
+R4
+R5
+!i122 19
+R6
+8../sim/tb_eth_rx.vhd
+F../sim/tb_eth_rx.vhd
+l0
+L5 1
+VU?Il@Zc3S@Qm3gkIl4ngJ1
+!s100 9=JlL5Cga@NGg2jlXOlKO2
+R9
+33
+!s110 1779045558
+!i10b 1
+!s108 1779045558.000000
+!s90 -reportprogress|300|-2008|../sim/tb_eth_rx.vhd|
+!s107 ../sim/tb_eth_rx.vhd|
+!i113 0
+Z26 o-2008
+R14
+Etb_rmii_mac_rx
+Z27 w1778608862
+R19
+R4
+R5
+!i122 15
+R6
+Z28 8C:/Users/Ameen/Desktop/digital_design/rmii_ethernet/sim/tb_rmii_mac_rx.vhd
+Z29 FC:/Users/Ameen/Desktop/digital_design/rmii_ethernet/sim/tb_rmii_mac_rx.vhd
+l0
+L5 1
+V;MCU7Sd9Kb^e]8l`3_5?b0
+!s100 4^_2dGW3Gg1c0n>RB87<d3
+R9
+33
+R22
+!i10b 1
+Z30 !s108 1779045526.000000
+Z31 !s90 -reportprogress|300|-work|work|-2008|-explicit|-vopt|-stats=none|C:/Users/Ameen/Desktop/digital_design/rmii_ethernet/sim/tb_rmii_mac_rx.vhd|
+Z32 !s107 C:/Users/Ameen/Desktop/digital_design/rmii_ethernet/sim/tb_rmii_mac_rx.vhd|
+!i113 0
+R13
+R14
+Asim
+DPx3 std 3 env 0 22 g[fj8WJKOa<0Y`zWY3UD70
+DEx4 work 11 rmii_mac_rx 0 22 mo<ACbYm:RU6>eHoK^cKg1
+R19
+R4
+R5
+DEx4 work 14 tb_rmii_mac_rx 0 22 ;MCU7Sd9Kb^e]8l`3_5?b0
+!i122 15
+l238
+L8 288
+VM>kBkTUOzYa03jadFU[iL1
+!s100 DU381ToVWoZon`d?jz:]M3
+R9
+33
+R22
+!i10b 1
+R30
+R31
+R32
+!i113 0
+R13
+R14
