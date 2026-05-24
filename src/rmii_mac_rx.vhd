@@ -11,6 +11,8 @@ entity rmii_mac_rx is
         i_rxer : in std_logic;
         i_crs_dv : in std_logic;
 
+        i_rx_fifo_full : in std_logic;
+
         o_rx_fifo_valid : out std_logic;
         o_rx_fifo_wr_data : out std_logic_vector(9 downto 0)
     );
@@ -62,6 +64,9 @@ architecture rtl of rmii_mac_rx is
     signal i_rst_n1 : std_logic := '0';
     signal i_rst_n2 : std_logic := '0';
 
+    signal pending_err_q : std_logic;
+    signal pending_err_d : std_logic;
+
     function crc32_update(
         crc_in : std_logic_vector(31 downto 0);
         data : std_logic_vector(7 downto 0)
@@ -105,6 +110,7 @@ begin
                 rx_fifo_wr_data_q <= (others => '0');
                 crc_q <= x"FFFFFFFF";
                 frame_ready_q <= '0';
+                pending_err_q <= '0';
             else
                 rx_state_q <= rx_state_d;
                 rx_shift_q <= rx_shift_d;
@@ -117,6 +123,7 @@ begin
                 rx_fifo_wr_data_q <= rx_fifo_wr_data_d;
                 crc_q <= crc_d;
                 frame_ready_q <= frame_ready_d;
+                pending_err_q <= pending_err_d;
             end if;
         end if;
     end process;
@@ -126,6 +133,15 @@ begin
         variable v_pop_byte : std_logic_vector(7 downto 0);
         variable v_computed_fcs : std_logic_vector(31 downto 0);
         variable v_received_fcs : std_logic_vector(31 downto 0);
+
+        procedure try_push_pending_err is
+        begin
+            if (pending_err_q = '1' and i_rx_fifo_full = '0') then
+                rx_fifo_valid_d <= '1';
+                rx_fifo_wr_data_d <= "11" & x"00";
+                pending_err_d <= '0';
+            end if;
+        end procedure;
     begin
         -- Defaults
         rx_state_d <= rx_state_q;
@@ -139,6 +155,10 @@ begin
         rx_fifo_wr_data_d <= rx_fifo_wr_data_q;
         crc_d <= crc_q;
         frame_ready_d <= frame_ready_q;
+        pending_err_d <= pending_err_q;
+
+        -- If 'pending_err' is set, attempt to push the error to the RX Fifo once non-full
+        try_push_pending_err;
 
         case rx_state_q is
             when s_PREAMBLE =>
@@ -197,7 +217,7 @@ begin
                         rx_shift_ctr_d <= rx_shift_ctr_q + 1;
                     end if;
                 else
-                    -- Reset
+                    -- Error, transition to PREAMBLE state (the current frame will be dropped)
                     rx_state_d <= s_PREAMBLE;
                 end if;
                 
@@ -224,7 +244,7 @@ begin
                         rx_shift_ctr_d <= rx_shift_ctr_q + 1;
                     end if;
                 else
-                    -- Reset
+                    -- Error, transition to PREAMBLE state (the current frame will be dropped) 
                     rx_state_d <= s_PREAMBLE;
                 end if;
                 
@@ -252,7 +272,7 @@ begin
                         rx_shift_ctr_d <= rx_shift_ctr_q + 1;
                     end if;
                 else
-                    -- Reset
+                    -- Error, transition to PREAMBLE state (the current frame will be dropped) 
                     rx_state_d <= s_PREAMBLE;
                 end if;
 
@@ -275,14 +295,22 @@ begin
                         delay_buf_d(3) <= v_rx_shift_d;
 
                         if (delay_buf_ctr_q = 4) then
-                            v_pop_byte := delay_buf_q(0);
+                            if (i_rx_fifo_full = '1' or pending_err_q = '1') then
+                                -- Error: Cannot append to RX Fifo
+                                -- Set 'pending_err' (if not already)
+                                pending_err_d <= '1';
+                                -- Transition to PREAMBLE state (the current frame will be dropped)
+                                rx_state_d <= s_PREAMBLE;
+                            else
+                                v_pop_byte := delay_buf_q(0);
 
-                            -- Signal to RX Fifo
-                            rx_fifo_valid_d <= '1';
-                            rx_fifo_wr_data_d <= "00" & v_pop_byte;
+                                -- Signal to RX Fifo
+                                rx_fifo_valid_d <= '1';
+                                rx_fifo_wr_data_d <= "00" & v_pop_byte;
 
-                            -- Update CRC
-                            crc_d <= crc32_update(crc_q, v_pop_byte);
+                                -- Update CRC
+                                crc_d <= crc32_update(crc_q, v_pop_byte);
+                            end if;
                         else
                             delay_buf_ctr_d <= delay_buf_ctr_q + 1;
                         end if;
@@ -291,36 +319,42 @@ begin
                     end if;
 
                 elsif (i_crs_dv = '0' and crs_dv_q = '1') then
-                    -- Remaining 4 bytes in 'delay_buf_q' are FCS
-                    -- Compare FCS bytes to computed CRC
-                    v_computed_fcs := not crc_q;
-                    v_received_fcs := delay_buf_q(3) & 
-                                      delay_buf_q(2) & 
-                                      delay_buf_q(1) & 
-                                      delay_buf_q(0);
-
-                    if (v_computed_fcs = v_received_fcs) then
-                        -- Received frame is correct
-                        -- Send a byte indicating end of successful frame
-                        rx_fifo_valid_d <= '1';
-                        rx_fifo_wr_data_d <= "10" & x"00";
+                    if (i_rx_fifo_full = '1' or pending_err_q = '1') then
+                        -- Error: Cannot append to RX Fifo
+                        -- Set 'pending_err' (if not already)
+                        pending_err_d <= '1';
+                        -- Transition to PREAMBLE state (the current frame will be dropped)
                         rx_state_d <= s_PREAMBLE;
-                        frame_ready_d <= '1';
                     else
-                        -- Received frame is corrupted
-                        -- Send a byte indicating end of corrupted frame
-                        rx_fifo_valid_d <= '1';
-                        rx_fifo_wr_data_d <= "11" & x"00";
-                        rx_state_d <= s_PREAMBLE;
-                        frame_ready_d <= '1';
-                    end if;
+                        -- Remaining 4 bytes in 'delay_buf_q' are FCS
+                        -- Compare FCS bytes to computed CRC
+                        v_computed_fcs := not crc_q;
+                        v_received_fcs := delay_buf_q(3) & 
+                                        delay_buf_q(2) & 
+                                        delay_buf_q(1) & 
+                                        delay_buf_q(0);
 
-                else
+                        if (v_computed_fcs = v_received_fcs) then
+                            -- Received frame is correct
+                            -- Send a byte indicating end of successful frame
+                            rx_fifo_valid_d <= '1';
+                            rx_fifo_wr_data_d <= "10" & x"00";
+                            rx_state_d <= s_PREAMBLE;
+                            frame_ready_d <= '1';
+                        else
+                            -- Received frame is corrupted
+                            -- Send a byte indicating end of corrupted frame
+                            rx_fifo_valid_d <= '1';
+                            rx_fifo_wr_data_d <= "11" & x"00";
+                            rx_state_d <= s_PREAMBLE;
+                            frame_ready_d <= '1';
+                        end if;
+                    end if;
+                else 
                     -- Some error, indicate the error and reset
                     rx_fifo_valid_d <= '1';
                     rx_fifo_wr_data_d <= "11" & x"00";
                     rx_state_d <= s_PREAMBLE;
-                    frame_ready_d <= '1';
                 end if;
 
         end case;
