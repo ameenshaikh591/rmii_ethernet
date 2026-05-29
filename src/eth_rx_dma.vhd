@@ -97,9 +97,16 @@ architecture rtl of eth_rx_dma is
     signal payload_buf_reg : t_payload_buf;
 
     signal payload_buf_ctr_reg  : unsigned(3 downto 0);
-    signal payload_buf_ctr_next : unsigned(3 downto 0); 
+    signal payload_buf_ctr_next : unsigned(3 downto 0);
     
-    function send_m_axi_valid 
+    function m_axi_write_burst (
+
+    ) return std_logic is
+    begin
+        M_AXI_AWVAlID <= '1';
+        M_AXI_WVALID <= '1';
+        if ()
+    end m_axi_write_burst;
 
 begin
 
@@ -170,6 +177,8 @@ begin
 
                     end if;
                 end if;
+
+            when S_ADDRESS_READY =
         end case;
     end process;
 
