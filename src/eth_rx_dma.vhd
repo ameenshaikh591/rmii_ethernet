@@ -89,7 +89,7 @@ architecture rtl of eth_rx_dma is
     signal dma_resetn : std_logic;
 
     type t_dma_state is
-        ( S_IDLE, S_HANDLE_ENTRY );
+        ( S_IDLE, S_POP_ENTRY, S_AW_WAIT, S_W_WAIT, S_MEM_WRITE, );
     signal state_reg    : t_dma_state;
     signal state_next   : t_dma_state;
 
@@ -110,10 +110,14 @@ architecture rtl of eth_rx_dma is
 
 begin
 
+    -- Defaults
     M_AXI_AWBURST   <= INCR;
     M_AXI_AWPROT    <= x"0";
     M_AXI_AWLEN     <= x"3";
     M_AXI_AWSIZE    <= x"2";
+
+    M_AXI_AWVALID   <= '0';
+    M_AXI_WVALID    <= '0';
 
     dma_clk <= S_AXI_ACLK;
     dma_resetn <= S_AXI_ARESETN;
@@ -130,56 +134,6 @@ begin
                 payload_buf_reg <= payload_buf_next;
             end if;
         end if;
-    end process;
-
-    process(all) is
-        variable payload_byte : std_logic_vector(9 downto 0);
-    begin
-
-        -- Defaults
-        o_rx_fifo_rd_en <= '0';
-        state_next <= state_reg;
-        payload_buf_next <= payload_buf_reg;
-        payload_buf_ctr_next <= payload_buf_ctr_reg;
-
-        case state_reg is
-
-            when S_IDLE =>
-                if (i_rx_fifo_empty = '0') then
-                    o_rx_fifo_rd_en <= '1'; 
-                    -- Read latency is 1, so need to wait until next cycle to read 'i_rx_fifo_dout'
-                    state_next <= S_HANDLE_ENTRY;
-                end if;
-
-            when S_HANDLE_ENTRY =>
-                payload_byte := i_rx_fifo_dout;
-                if (payload_byte(ERROR_BIT) = '1') then
-                    -- Error condition
-                elsif (payload_byte(LAST_BIT) = '1') then
-                    -- Last condition
-                else
-                    -- Normal payload
-
-                    -- Store the byte
-                    payload_buf_next(to_integer(payload_buf_ctr_reg));
-                    
-                    -- Increment 'payload_buf_ctr'
-                    payload_buf_ctr_next <= payload_buf_ctr_reg + 1;
-                    
-                    if (payload_buf_ctr_reg = PAYLOAD_BUFFER_FULL) then
-
-
-
-
-                    else
-
-
-
-                    end if;
-                end if;
-
-            when S_ADDRESS_READY =
-        end case;
     end process;
 
 end architecture;
