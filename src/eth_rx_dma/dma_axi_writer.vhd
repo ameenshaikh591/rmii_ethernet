@@ -2,11 +2,10 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
+use work.eth_rx_package.all;
+
 entity dma_axi_writer is
-  generic (
-    C_M_AXI_ADDR_WIDTH : integer := 32;
-    C_M_AXI_DATA_WIDTH : integer := 32
-  );
+
   port (
     -- reset and clock
     i_aresetn : in std_logic;
