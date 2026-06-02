@@ -34,28 +34,51 @@ tCvgOpt 0 defaultOptions 1107585188
 n@_opt
 OL;O;2025.2;82
 R2
-Eeth_rx_axil
-Z3 w1778642386
+Edma_payload_collector
+w1780371837
+Z3 DPx4 ieee 11 numeric_std 0 22 aU^R8eGcicLcUFIaBQSL>3
 Z4 DPx3 std 6 textio 0 22 zE1`LPoLg^DX3Oz^4Fj1K3
 Z5 DPx4 ieee 14 std_logic_1164 0 22 cVAk:aDinOX8^VGI1ekP<3
+!i122 14
+R2
+8src\eth_rx_dma\dma_payload_collector.vhd
+Fsrc\eth_rx_dma\dma_payload_collector.vhd
+l0
+L5 1
+V=mkio7gki;9a1_7`1UJZI0
+!s100 @mgX8g90]3?hTg=IgH_JI3
+Z6 OL;C;2025.2;82
+33
+Z7 !s110 1780372935
+!i10b 1
+Z8 !s108 1780372935.000000
+Z9 !s90 -2008|src\rmii_mac_rx.vhd|src\eth_rx_dma\dma_payload_collector.vhd|src\eth_rx_dma\dma_axi_writer.vhd|src\eth_rx_dma\dma_status_manager.vhd|src\eth_rx_dma\eth_rx_dma.vhd|src\eth_rx.vhd|
+Z10 !s107 src\\eth_rx.vhd|src\\eth_rx_dma\\eth_rx_dma.vhd|src\\eth_rx_dma\\dma_status_manager.vhd|src\\eth_rx_dma\\dma_axi_writer.vhd|src\\eth_rx_dma\\dma_payload_collector.vhd|src\\rmii_mac_rx.vhd|
+!i113 0
+Z11 o-2008
+Z12 tExplicit 1 CvgOpt 0 defaultOptions 1083072464
+Eeth_rx_axil
+Z13 w1778642386
+R4
+R5
 !i122 7
 R2
-Z6 8src\eth_rx_axil.vhd
-Z7 Fsrc\eth_rx_axil.vhd
+Z14 8src\eth_rx_axil.vhd
+Z15 Fsrc\eth_rx_axil.vhd
 l0
 L4 1
 VECB8S;[UTNSj9N<4GANDL3
 !s100 Va[l_m8UboIYCmW2TcQ6K0
-Z8 OL;C;2025.2;82
+R6
 33
-Z9 !s110 1778643036
+Z16 !s110 1778643036
 !i10b 1
-Z10 !s108 1778643036.000000
-Z11 !s90 -2008|src\eth_rx_axil.vhd|src\rmii_mac_rx.vhd|src\eth_rx.vhd|
-Z12 !s107 src\\eth_rx.vhd|src\\rmii_mac_rx.vhd|src\\eth_rx_axil.vhd|
+Z17 !s108 1778643036.000000
+Z18 !s90 -2008|src\eth_rx_axil.vhd|src\rmii_mac_rx.vhd|src\eth_rx.vhd|
+Z19 !s107 src\\eth_rx.vhd|src\\rmii_mac_rx.vhd|src\\eth_rx_axil.vhd|
 !i113 0
-Z13 o-2008
-Z14 tExplicit 1 CvgOpt 0 defaultOptions 1083072464
+R11
+R12
 Artl
 R4
 R5
@@ -65,109 +88,154 @@ l100
 L49 223
 VPiU=Vib@d3=PUBgH9o;BM3
 !s100 gD2bCO0gJ]?Dlhhno7nRJ3
-R8
+R6
 33
-R9
+R16
 !i10b 1
-R10
+R17
+R18
+R19
+!i113 0
 R11
 R12
-!i113 0
-R13
-R14
-Ermii_mac_rx
-Z15 w1778520623
-Z16 DPx4 ieee 11 numeric_std 0 22 aU^R8eGcicLcUFIaBQSL>3
+Peth_rx_package
+R3
 R4
 R5
-!i122 7
+!i122 17
+Z20 w1780375461
 R2
-Z17 8src\rmii_mac_rx.vhd
-Z18 Fsrc\rmii_mac_rx.vhd
+Z21 8src\eth_rx_package.vhd
+Z22 Fsrc\eth_rx_package.vhd
+l0
+L5 93
+V<gzdIJ3ZN>`jDFH_BKkUR1
+!s100 2>d[2Fi53kSMLD]?Q5ko80
+R6
+33
+b1
+Z23 !s110 1780375469
+!i10b 1
+Z24 !s108 1780375468.000000
+Z25 !s90 -2008|src\eth_rx_package.vhd|
+Z26 !s107 src\\eth_rx_package.vhd|
+!i113 0
+R11
+R12
+Bbody
+Z27 DPx4 work 14 eth_rx_package 0 22 <gzdIJ3ZN>`jDFH_BKkUR1
+R3
+R4
+R5
+!i122 17
+l0
+L99 344
+VGUFeSCdB@oMcUWKNY1M6U0
+!s100 HPNEPl=f6MGoEm^khlJ=12
+R6
+33
+R23
+!i10b 1
+R24
+R25
+R26
+!i113 0
+R11
+R12
+Ermii_mac_rx
+Z28 w1780026243
+R3
+R4
+R5
+!i122 14
+R2
+Z29 8src\rmii_mac_rx.vhd
+Z30 Fsrc\rmii_mac_rx.vhd
 l0
 L5 1
-Vmo<ACbYm:RU6>eHoK^cKg1
-!s100 @2GFRFoo3nLiQ=ij72DWJ3
-R8
+VOBGkRQLBYF4d5n]8?B@P>3
+!s100 ?3B]U:G300F]6@<KZEB[e2
+R6
 33
-R9
+R7
 !i10b 1
+R8
+R9
 R10
+!i113 0
 R11
 R12
-!i113 0
-R13
-R14
 Artl
-R16
+R3
 R4
 R5
-Z19 DEx4 work 11 rmii_mac_rx 0 22 mo<ACbYm:RU6>eHoK^cKg1
-!i122 7
-l80
-L19 305
-V?IGQ^Fzn1@JSM24elgCl01
-!s100 mFj<C<AYNSFFSM=<BM_m`1
-R8
+DEx4 work 11 rmii_mac_rx 0 22 OBGkRQLBYF4d5n]8?B@P>3
+!i122 14
+l88
+L21 342
+VPDme6mQa4V4YC]YJJ1KAG3
+!s100 0ZboFZ0_T5g@>OaeNL?Ba2
+R6
 33
-R9
+R7
 !i10b 1
+R8
+R9
 R10
+!i113 0
 R11
 R12
-!i113 0
-R13
-R14
 Etb_eth_rx
-w1778655721
-R16
+w1780372909
+DPx4 work 14 eth_rx_package 0 22 1OK;l8UFYKZ82ibIjI_hO2
+R3
 R4
 R5
-!i122 11
+!i122 13
 R2
 8sim\tb_eth_rx.vhd
 Fsim\tb_eth_rx.vhd
 l0
-L5 1
-VU?Il@Zc3S@Qm3gkIl4ngJ1
-!s100 9=JlL5Cga@NGg2jlXOlKO2
-R8
+L7 1
+Vj3mW[?>@8_W@WjBcKF9:]2
+!s100 F99_YB6HT22clKE;G?Z8J1
+R6
 33
-!s110 1778655726
+!s110 1780372925
 !i10b 1
-!s108 1778655725.000000
+!s108 1780372925.000000
 !s90 -2008|sim\tb_eth_rx.vhd|
 !s107 sim\\tb_eth_rx.vhd|
 !i113 0
-R13
-R14
+R11
+R12
 Etb_rmii_mac_rx
-Z20 w1778608575
-R16
+Z31 w1778608575
+R3
 R4
 R5
 !i122 4
 R2
-Z21 8sim\tb_rmii_mac_rx.vhd
-Z22 Fsim\tb_rmii_mac_rx.vhd
+Z32 8sim\tb_rmii_mac_rx.vhd
+Z33 Fsim\tb_rmii_mac_rx.vhd
 l0
 L5 1
 V=]njG@a72cC<ATG>e^DjQ3
 !s100 4^_2dGW3Gg1c0n>RB87<d3
-R8
+R6
 33
-Z23 !s110 1778608584
+Z34 !s110 1778608584
 !i10b 1
-Z24 !s108 1778608584.000000
-Z25 !s90 -2008|src\rmii_mac_rx.vhd|sim\tb_rmii_mac_rx.vhd|
-Z26 !s107 sim\\tb_rmii_mac_rx.vhd|src\\rmii_mac_rx.vhd|
+Z35 !s108 1778608584.000000
+Z36 !s90 -2008|src\rmii_mac_rx.vhd|sim\tb_rmii_mac_rx.vhd|
+Z37 !s107 sim\\tb_rmii_mac_rx.vhd|src\\rmii_mac_rx.vhd|
 !i113 0
-R13
-R14
+R11
+R12
 Asim
 DPx3 std 3 env 0 22 g[fj8WJKOa<0Y`zWY3UD70
-R19
-R16
+DEx4 work 11 rmii_mac_rx 0 22 mo<ACbYm:RU6>eHoK^cKg1
+R3
 R4
 R5
 DEx4 work 14 tb_rmii_mac_rx 0 22 =]njG@a72cC<ATG>e^DjQ3
@@ -176,13 +244,13 @@ l238
 L8 288
 VTJf28o]:eG=1XXNVThK?Z0
 !s100 Wm1j[WVTRgM`^V7ZfC5>V3
-R8
+R6
 33
-R23
+R34
 !i10b 1
-R24
-R25
-R26
+R35
+R36
+R37
 !i113 0
-R13
-R14
+R11
+R12

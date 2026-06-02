@@ -2,6 +2,8 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
+use work.eth_rx_package.all;
+
 entity tb_eth_rx is
 end entity;
 
@@ -11,22 +13,18 @@ architecture sim of tb_eth_rx is
     constant c_NUM_FRAMES : natural := 4;
     constant c_DATA_BYTES : natural := 6;
 
-    constant C_S_AXI_DATA_WIDTH : integer := 32;
-    constant C_S_AXI_ADDR_WIDTH : integer := 32;
-
-    type t_MAC_ADDR is array (0 to 5) of std_logic_vector(7 downto 0);
-    type t_TYPE is array (0 to 1) of std_logic_vector(7 downto 0);
-    type t_DATA is array (natural range <>) of std_logic_vector(7 downto 0);
     subtype t_FRAME_DATA is t_DATA(0 to c_DATA_BYTES - 1);
     type t_FRAME_DATA_ARRAY is array (natural range <>) of t_FRAME_DATA;
 
     signal i_rst_n : std_logic := '0';
-    signal i_ref_clk : std_logic := '0';
     signal i_sys_clk : std_logic := '0';
 
-    signal i_rxd : std_logic_vector(1 downto 0) := (others => '0');
-    signal i_rxer : std_logic := '0';
-    signal i_crs_dv : std_logic := '0';
+    signal rmii : t_rmii_bus := (
+        clk => '0',
+        rxd => (others => '0'),
+        rxer => '0',
+        crs_dv => '0'
+    );
 
     signal S_AXI_AWADDR : std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0) := (others => '0');
     signal S_AXI_AWPROT : std_logic_vector(2 downto 0) := (others => '0');
@@ -53,25 +51,6 @@ architecture sim of tb_eth_rx is
     signal S_AXI_RREADY : std_logic := '0';
 
     signal o_fifo_full : std_logic;
-
-    function crc32_update(
-        crc_in : std_logic_vector(31 downto 0);
-        data : std_logic_vector(7 downto 0)
-    ) return std_logic_vector is
-        variable crc : unsigned(31 downto 0);
-    begin
-        crc := unsigned(crc_in) xor resize(unsigned(data), 32);
-
-        for i in 0 to 7 loop
-            if crc(0) = '1' then
-                crc := shift_right(crc, 1) xor x"EDB88320";
-            else
-                crc := shift_right(crc, 1);
-            end if;
-        end loop;
-
-        return std_logic_vector(crc);
-    end function;
 
     function lfsr_next(
         state : std_logic_vector(31 downto 0)
@@ -138,84 +117,6 @@ architecture sim of tb_eth_rx is
         rready <= '0';
     end m_axi_rd_transaction;
 
-    procedure send_byte(
-        signal clk : in std_logic;
-        signal rxd : out std_logic_vector(1 downto 0);
-        signal crs_dv : out std_logic;
-        constant byte : in std_logic_vector(7 downto 0)
-    ) is
-    begin
-        wait until rising_edge(clk);
-        crs_dv <= '1';
-        rxd <= byte(1 downto 0);
-
-        wait until rising_edge(clk);
-        rxd <= byte(3 downto 2);
-
-        wait until rising_edge(clk);
-        rxd <= byte(5 downto 4);
-
-        wait until rising_edge(clk);
-        rxd <= byte(7 downto 6);
-    end procedure;
-
-    procedure send_eth_frame(
-        signal clk : in std_logic;
-        signal rxd : out std_logic_vector(1 downto 0);
-        signal crs_dv : out std_logic;
-        constant dest_addr : in t_MAC_ADDR;
-        constant src_addr : in t_MAC_ADDR;
-        constant eth_type : in t_TYPE;
-        constant data : in t_DATA
-    ) is
-        variable crc : std_logic_vector(31 downto 0);
-        variable fcs : std_logic_vector(31 downto 0);
-    begin
-        crc := x"FFFFFFFF";
-
-        -- Preamble plus start-of-frame delimiter
-        for i in 0 to 6 loop
-            send_byte(clk, rxd, crs_dv, x"55");
-        end loop;
-        send_byte(clk, rxd, crs_dv, x"D5");
-
-        -- Destination Address
-        for i in dest_addr'range loop
-            send_byte(clk, rxd, crs_dv, dest_addr(i));
-            crc := crc32_update(crc, dest_addr(i));
-        end loop;
-
-        -- Source Address
-        for i in src_addr'range loop
-            send_byte(clk, rxd, crs_dv, src_addr(i));
-            crc := crc32_update(crc, src_addr(i));
-        end loop;
-
-        -- Type
-        for i in eth_type'range loop
-            send_byte(clk, rxd, crs_dv, eth_type(i));
-            crc := crc32_update(crc, eth_type(i));
-        end loop;
-
-        -- Data
-        for i in data'range loop
-            send_byte(clk, rxd, crs_dv, data(i));
-            crc := crc32_update(crc, data(i));
-        end loop;
-
-        -- FCS is transmitted least-significant byte first.
-        fcs := not crc;
-        send_byte(clk, rxd, crs_dv, fcs(7 downto 0));
-        send_byte(clk, rxd, crs_dv, fcs(15 downto 8));
-        send_byte(clk, rxd, crs_dv, fcs(23 downto 16));
-        send_byte(clk, rxd, crs_dv, fcs(31 downto 24));
-
-        -- End (de-assert 'i_crs_dv' to indicate EOF)
-        wait until rising_edge(clk);
-        crs_dv <= '0';
-        rxd <= (others => '0');
-    end procedure;
-
     procedure eth_reset (
         signal clk : in std_logic;
         signal rst_n : out std_logic;
@@ -266,11 +167,11 @@ begin
             C_S_AXI_ADDR_WIDTH => C_S_AXI_ADDR_WIDTH
         )
         port map (
-            i_ref_clk => i_ref_clk,
+            i_ref_clk => rmii.clk,
 
-            i_rxd => i_rxd,
-            i_rxer => i_rxer,
-            i_crs_dv => i_crs_dv,
+            i_rxd => rmii.rxd,
+            i_rxer => rmii.rxer,
+            i_crs_dv => rmii.crs_dv,
 
             S_AXI_ACLK => i_sys_clk,
             S_AXI_ARESETN => i_rst_n,
@@ -303,7 +204,7 @@ begin
         );
 
     -- Clock Generation
-    i_ref_clk <= not i_ref_clk after c_REF_CLK_PERIOD / 2;
+    rmii.clk <= not rmii.clk after c_REF_CLK_PERIOD / 2;
     i_sys_clk <= not i_sys_clk after c_SYS_CLK_PERIOD / 2;
 
     process is
@@ -324,9 +225,9 @@ begin
         eth_reset(
             i_sys_clk,
             i_rst_n,
-            i_rxd,
-            i_rxer,
-            i_crs_dv,
+            rmii.rxd,
+            rmii.rxer,
+            rmii.crs_dv,
             S_AXI_AWADDR,
             S_AXI_AWPROT,
             S_AXI_AWVALID,
@@ -362,9 +263,7 @@ begin
         -- Transmission of 4 frames
         for frame_idx in c_TEST_DATA'range loop
             send_eth_frame(
-                i_ref_clk,
-                i_rxd,
-                i_crs_dv,
+                rmii,
                 c_DEST_ADDR,
                 c_SRC_ADDR,
                 c_ETH_TYPE,
