@@ -178,12 +178,6 @@ begin
         );
 
     eth_rx_dma_inst : entity work.eth_rx_dma
-        generic map (
-            C_M_AXI_ADDR_WIDTH => C_M_AXI_ADDR_WIDTH,
-            C_M_AXI_DATA_WIDTH => C_M_AXI_DATA_WIDTH,
-            C_S_AXI_ADDR_WIDTH => C_S_AXI_ADDR_WIDTH,
-            C_S_AXI_DATA_WIDTH => C_S_AXI_DATA_WIDTH
-        )
         port map (
             i_aresetn => S_AXI_ARESETN,
             i_aclk    => S_AXI_ACLK,

@@ -56,8 +56,8 @@ architecture rtl of dma_status_manager is
 
     constant PAYLOAD_REGION_BASE_ADDR_REG : std_logic_vector(3 downto 0) := x"0";
     constant HEAD_ADVANCE_REG             : std_logic_vector(3 downto 0) := x"4";
-    constant HEAD_REG                     : std_logic_vector(3 downto 0) := x"8";
-    constant TAIL_REG                     : std_logic_vector(3 downto 0) := x"C";
+    constant c_HEAD_REG                     : std_logic_vector(3 downto 0) := x"8";
+    constant c_TAIL_REG                     : std_logic_vector(3 downto 0) := x"C";
 
     constant BRESP_OKAY   : std_logic_vector(1 downto 0) := "00";
     constant BRESP_SLVERR : std_logic_vector(1 downto 0) := "10";
@@ -320,13 +320,13 @@ begin
 
                     case S_AXI_ARADDR(3 downto 0) is
 
-                        when HEAD_REG =>
+                        when c_HEAD_REG =>
 
                             axi4_lite_rd_data_next <= (others => '0');
                             axi4_lite_rd_data_next(head_reg'length-1 downto 0) <= std_logic_vector(head_reg);
                             rresp_next <= RRESP_OKAY;
 
-                        when TAIL_REG =>
+                        when c_TAIL_REG =>
 
                             axi4_lite_rd_data_next <= (others => '0');
                             axi4_lite_rd_data_next(tail_reg'length-1 downto 0) <= std_logic_vector(tail_reg);

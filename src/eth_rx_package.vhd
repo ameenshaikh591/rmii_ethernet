@@ -265,17 +265,15 @@ package body eth_rx_package is
             end loop;
 
             assert axi.awaddr = expected_addr
-                report "Expected AXI write burst address 0x" & to_hstring(expected_addr) &
-                       ", Actual: 0x" & to_hstring(axi.awaddr)
+                report "FAIL"
                 severity error;
 
             assert axi.awsize = "010"
-                report "Expected AXI AWSIZE 0x2 for 32-bit beats, Actual: 0x" &
-                       to_hstring(axi.awsize)
+                report "FAIL"
                 severity error;
 
             assert axi.awburst = "01"
-                report "Expected AXI AWBURST INCR, Actual: 0x" & to_hstring(axi.awburst)
+                report "FAIL"
                 severity error;
 
             beats_in_burst := to_integer(unsigned(axi.awlen)) + 1;
@@ -283,8 +281,7 @@ package body eth_rx_package is
 
             for beat_idx in 0 to beats_in_burst - 1 loop
                 assert bytes_seen < expected_data'length
-                    report "Received extra AXI write beat " & integer'image(global_beat_idx) &
-                           " after all expected payload bytes were written"
+                    report "FAIL"
                     severity error;
 
                 axi.wready <= '1';
@@ -301,16 +298,11 @@ package body eth_rx_package is
                 observed_byte_count := count_wstrb_bytes(axi.wstrb);
 
                 assert axi.wstrb = expected_wstrb
-                    report "Expected AXI WSTRB 0x" & to_hstring(expected_wstrb) &
-                           " at byte offset " & integer'image(bytes_seen) &
-                           ", Actual: 0x" & to_hstring(axi.wstrb)
+                    report "FAIL"
                     severity error;
 
                 assert observed_byte_count = valid_byte_count
-                    report "Expected " & integer'image(valid_byte_count) &
-                           " valid AXI write byte lanes at byte offset " &
-                           integer'image(bytes_seen) & ", Actual: " &
-                           integer'image(observed_byte_count)
+                    report "FAIL"
                     severity error;
 
                 for byte_lane in 0 to c_BYTES_PER_BEAT - 1 loop
@@ -319,23 +311,18 @@ package body eth_rx_package is
                         expected_byte := expected_data(expected_data'low + bytes_seen + byte_lane);
 
                         assert actual_byte = expected_byte
-                            report "Expected AXI WDATA byte 0x" & to_hstring(expected_byte) &
-                                   " at payload byte offset " &
-                                   integer'image(bytes_seen + byte_lane) &
-                                   ", Actual: 0x" & to_hstring(actual_byte)
+                            report "FAIL"
                             severity error;
                     end if;
                 end loop;
 
                 if beat_idx = beats_in_burst - 1 then
                     assert axi.wlast = '1'
-                        report "Expected AXI WLAST on final beat " &
-                               integer'image(beat_idx) & " of burst"
+                        report "FAIL"
                         severity error;
                 else
                     assert axi.wlast = '0'
-                        report "Unexpected AXI WLAST on beat " &
-                               integer'image(beat_idx) & " of burst"
+                        report "FAIL"
                         severity error;
                 end if;
 
@@ -393,6 +380,11 @@ package body eth_rx_package is
         variable fcs : std_logic_vector(31 downto 0);
     begin
         crc := x"FFFFFFFF";
+
+        -- 96 cycle IPG ('crs_dv' asserted LOW)
+        for i in 1 to 96 loop
+            wait until rising_edge(rmii.clk);
+        end loop;
 
         -- Preamble plus start-of-frame delimiter
         for i in 0 to 6 loop

@@ -1,0 +1,17 @@
+# compile vhdl design source files
+vhdl xil_defaultlib  \
+"../../../../src/eth_rx_package.vhd" \
+
+vhdl2008 xil_defaultlib  \
+"../../../../src/rmii_mac_rx.vhd" \
+"../../../../src/eth_rx_dma/dma_payload_collector.vhd" \
+"../../../../src/eth_rx_dma/dma_axi_writer.vhd" \
+"../../../../src/eth_rx_dma/dma_status_manager.vhd" \
+
+vhdl xil_defaultlib  \
+"../../../../src/eth_rx_dma/eth_rx_dma.vhd" \
+"../../../../src/eth_rx.vhd" \
+"../../../../sim/tb_eth_rx_new.vhd" \
+
+# Do not sort compile order
+nosort

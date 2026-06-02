@@ -104,7 +104,13 @@ begin
         begin
             o_chunk_valid <= '1';
             o_chunk_buf_id <= buf_id_reg;
-            o_chunk_byte_count <= chunk_byte_count_reg + 1;
+
+            if (last = '1') then
+                o_chunk_byte_count <= chunk_byte_count_reg;
+            else
+                o_chunk_byte_count <= chunk_byte_count_reg + 1;
+            end if;
+
             o_chunk_last <= last;
             o_chunk_error <= err;
 
@@ -112,7 +118,7 @@ begin
             chunk_error_next <= err;
 
             if (i_chunk_ready = '1') then
-                transition_next_buf();
+                transition_next_buf;
             else
                 state_next <= S_READY_WAIT;
             end if;
@@ -122,12 +128,16 @@ begin
         begin
             o_chunk_valid <= '1';
             o_chunk_buf_id <= buf_id_reg;
-            o_chunk_byte_count <= chunk_byte_count_reg + 1;
+            if (chunk_last_reg = '1') then
+                o_chunk_byte_count <= chunk_byte_count_reg;
+            else
+                o_chunk_byte_count <= chunk_byte_count_reg + 1;
+            end if;
             o_chunk_last <= chunk_last_reg;
             o_chunk_error <= chunk_error_reg;
 
             if (i_chunk_ready = '1') then
-                transition_next_buf();
+                transition_next_buf;
             else
                 state_next <= S_READY_WAIT;
             end if;
@@ -175,18 +185,24 @@ begin
 
                 elsif (chunk_byte(LAST_BIT) = '1') then
 
-                    -- Last byte
-                    -- Write the byte to the ping-pong buffer
-                    write_byte_to_buf();
+                    -- Last byte contains no payload byte
 
-                    -- Offer final chunk to AXI writer
-                    offer_chunk('1', '0');
+                    -- If the buffer is empty, transition back to IDLE state
+                    -- Otherwise, offer the existing chunk in the buffer to the DMA writer
+                    if (chunk_byte_count_reg = 0) then
+                        state_next <= S_IDLE;
+                        chunk_last_next <= '0';
+                        chunk_error_next <= '0';
+                    else
+                        -- Offer final chunk to AXI writer
+                        offer_chunk('1', '0');
+                    end if;
 
                 else
 
                     -- Normal byte
                     -- Write the byte to the ping-pong buffer
-                    write_byte_to_buf();
+                    write_byte_to_buf;
 
                     if (chunk_byte_count_reg = BUF_FULL_INDEX) then
 
@@ -204,7 +220,7 @@ begin
             
             when S_READY_WAIT =>
 
-                reoffer_chunk();
+                reoffer_chunk;
 
         end case;
     end process;

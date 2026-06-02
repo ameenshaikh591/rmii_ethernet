@@ -124,10 +124,6 @@ begin
     );
 
   axi_writer_inst : entity work.dma_axi_writer
-    generic map (
-      C_M_AXI_ADDR_WIDTH => C_M_AXI_ADDR_WIDTH,
-      C_M_AXI_DATA_WIDTH => C_M_AXI_DATA_WIDTH
-    )
     port map (
       i_aresetn => i_aresetn,
       i_aclk    => i_aclk,
