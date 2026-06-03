@@ -185,20 +185,7 @@ package body eth_rx_package is
 
         axil.bready <= '0';
 
-        if (axil.awready = '1') then
-            aw_seen := true;
-            axil.awvalid <= '0';
-        end if;
-
-        if (axil.wready = '1') then
-            w_seen := true;
-            axil.wvalid <= '0';
-        end if;
-
         while ((not aw_seen) or (not w_seen)) loop
-            wait until rising_edge(clk);
-            wait for 1 ns;
-
             if ((not aw_seen) and (axil.awready = '1')) then
                 aw_seen := true;
                 axil.awvalid <= '0';
@@ -208,22 +195,25 @@ package body eth_rx_package is
                 w_seen := true;
                 axil.wvalid <= '0';
             end if;
-        end loop;
 
-        -- Wait for write response
-        axil.bready <= '1';
-
-        while (axil.bvalid /= '1') loop
             wait until rising_edge(clk);
             wait for 1 ns;
         end loop;
 
+        -- Wait for a write response
+        axil.bready <= '1';
+
+        loop
+            wait until rising_edge(clk);
+            wait for 1 ns;
+
+            exit when axil.bvalid = '1';
+        end loop;
+
+        -- Save the write response
         resp := axil.bresp;
-
-        wait until rising_edge(clk);
-        wait for 1 ns;
-
         axil.bready <= '0';
+
     end axil_write;
 
     procedure expect_axi_write_payload(

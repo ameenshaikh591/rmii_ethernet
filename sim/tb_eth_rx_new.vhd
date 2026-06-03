@@ -30,7 +30,7 @@ architecture sim of tb_eth_rx_new is
 
         bresp   => (others => 'Z'),
         bvalid  => 'Z',
-        bready  => '0',
+        bready  => 'Z',
 
         araddr  => (others => '0'),
         arprot  => (others => '0'),
