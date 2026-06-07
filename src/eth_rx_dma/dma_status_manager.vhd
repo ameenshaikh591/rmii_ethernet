@@ -101,6 +101,9 @@ architecture rtl of dma_status_manager is
     signal axi4_lite_rd_data_reg  : std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);
     signal axi4_lite_rd_data_next : std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);
 
+    signal awvalid_reg : std_logic;
+    signal wvalid_reg : std_logic;
+
     signal aw_seen_reg  : std_logic;
     signal aw_seen_next : std_logic;
 
@@ -137,6 +140,9 @@ begin
                 read_state_reg <= S_READ_IDLE;
                 dma_state_reg <= S_DMA_IDLE;
 
+                awvalid_reg <= '0';
+                wvalid_reg <= '0';
+
                 aw_seen_reg <= '0';
                 w_seen_reg <= '0';
 
@@ -160,6 +166,9 @@ begin
                 state_reg <= state_next;
                 read_state_reg <= read_state_next;
                 dma_state_reg <= dma_state_next;
+
+                awvalid_reg <= S_AXI_AWVALID;
+                wvalid_reg <= S_AXI_WVALID;
 
                 aw_seen_reg <= aw_seen_next;
                 w_seen_reg <= w_seen_next;
@@ -223,17 +232,19 @@ begin
                 S_AXI_AWREADY <= not aw_seen_reg;
                 S_AXI_WREADY  <= not w_seen_reg;
 
-                aw_accept := S_AXI_AWVALID and (not aw_seen_reg);
-                w_accept  := S_AXI_WVALID and (not w_seen_reg);
+                aw_accept := awvalid_reg and (not aw_seen_reg);
+                w_accept  := wvalid_reg and (not w_seen_reg); 
 
                 if (aw_accept = '1') then
                     aw_seen_next <= '1';
                     axi4_lite_wr_addr_offset_next <= S_AXI_AWADDR(3 downto 0);
+                    S_AXI_AWREADY <= '0';
                 end if;
 
                 if (w_accept = '1') then
                     w_seen_next <= '1';
                     axi4_lite_wr_data_next <= S_AXI_WDATA;
+                    S_AXI_WREADY <= '0';
                 end if;
 
                 if ((aw_seen_reg = '1' or aw_accept = '1') and

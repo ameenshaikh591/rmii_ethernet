@@ -186,18 +186,25 @@ package body eth_rx_package is
         axil.bready <= '0';
 
         while ((not aw_seen) or (not w_seen)) loop
-            if ((not aw_seen) and (axil.awready = '1')) then
+
+            if (axil.awready = '1') then
                 aw_seen := true;
-                axil.awvalid <= '0';
             end if;
 
-            if ((not w_seen) and (axil.wready = '1')) then
+            if (axil.wready = '1') then
                 w_seen := true;
-                axil.wvalid <= '0';
             end if;
 
             wait until rising_edge(clk);
             wait for 1 ns;
+
+            if (aw_seen) then
+                axil.awvalid <= '0';
+            end if;
+
+            if (w_seen) then
+                axil.wvalid <= '0';
+            end if;
         end loop;
 
         -- Wait for a write response
