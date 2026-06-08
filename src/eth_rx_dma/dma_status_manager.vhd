@@ -1,3 +1,8 @@
+-- AXI4-Lite slave handshake implementation:
+-- Registered 'S_AXI_xREADY' outputs avoid AXI input-to-output combinational paths
+-- Live 'S_AXI_xVALID' inputs are used to avoid an extra cycle of latency and improve throughput
+
+
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
@@ -56,8 +61,8 @@ architecture rtl of dma_status_manager is
 
     constant PAYLOAD_REGION_BASE_ADDR_REG : std_logic_vector(3 downto 0) := x"0";
     constant HEAD_ADVANCE_REG             : std_logic_vector(3 downto 0) := x"4";
-    constant c_HEAD_REG                     : std_logic_vector(3 downto 0) := x"8";
-    constant c_TAIL_REG                     : std_logic_vector(3 downto 0) := x"C";
+    constant c_HEAD_REG                   : std_logic_vector(3 downto 0) := x"8";
+    constant c_TAIL_REG                   : std_logic_vector(3 downto 0) := x"C";
 
     constant BRESP_OKAY   : std_logic_vector(1 downto 0) := "00";
     constant BRESP_SLVERR : std_logic_vector(1 downto 0) := "10";
@@ -101,8 +106,20 @@ architecture rtl of dma_status_manager is
     signal axi4_lite_rd_data_reg  : std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);
     signal axi4_lite_rd_data_next : std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);
 
-    signal awvalid_reg : std_logic;
-    signal wvalid_reg : std_logic;
+    signal awready_reg  : std_logic;
+    signal awready_next : std_logic;
+
+    signal wready_reg  : std_logic;
+    signal wready_next : std_logic;
+
+    signal bvalid_reg  : std_logic;
+    signal bvalid_next : std_logic;
+
+    signal arready_reg  : std_logic;
+    signal arready_next : std_logic;
+
+    signal rvalid_reg  : std_logic;
+    signal rvalid_next : std_logic;
 
     signal aw_seen_reg  : std_logic;
     signal aw_seen_next : std_logic;
@@ -140,8 +157,12 @@ begin
                 read_state_reg <= S_READ_IDLE;
                 dma_state_reg <= S_DMA_IDLE;
 
-                awvalid_reg <= '0';
-                wvalid_reg <= '0';
+                awready_reg <= '1';
+                wready_reg <= '1';
+                bvalid_reg <= '0';
+
+                arready_reg <= '1';
+                rvalid_reg <= '0';
 
                 aw_seen_reg <= '0';
                 w_seen_reg <= '0';
@@ -167,8 +188,12 @@ begin
                 read_state_reg <= read_state_next;
                 dma_state_reg <= dma_state_next;
 
-                awvalid_reg <= S_AXI_AWVALID;
-                wvalid_reg <= S_AXI_WVALID;
+                awready_reg <= awready_next;
+                wready_reg <= wready_next;
+                bvalid_reg <= bvalid_next;
+
+                arready_reg <= arready_next;
+                rvalid_reg <= rvalid_next;
 
                 aw_seen_reg <= aw_seen_next;
                 w_seen_reg <= w_seen_next;
@@ -197,11 +222,16 @@ begin
 
         variable aw_accept : std_logic;
         variable w_accept  : std_logic;
+        variable b_accept  : std_logic;
 
     begin
 
         -- Defaults
         state_next <= state_reg;
+
+        awready_next <= awready_reg;
+        wready_next <= wready_reg;
+        bvalid_next <= bvalid_reg;
 
         aw_seen_next <= aw_seen_reg;
         w_seen_next <= w_seen_reg;
@@ -216,35 +246,30 @@ begin
 
         bresp_next <= bresp_reg;
 
-        S_AXI_AWREADY <= '0';
-        S_AXI_WREADY <= '0';
+        S_AXI_AWREADY <= awready_reg;
+        S_AXI_WREADY <= wready_reg;
 
-        S_AXI_BVALID <= '0';
+        S_AXI_BVALID <= bvalid_reg;
         S_AXI_BRESP <= bresp_reg;
 
-        aw_accept := '0';
-        w_accept := '0';
+        aw_accept := S_AXI_AWVALID and awready_reg;
+        w_accept := S_AXI_WVALID and wready_reg;
+        b_accept := bvalid_reg and S_AXI_BREADY;
 
         case state_reg is
 
             when S_IDLE =>
 
-                S_AXI_AWREADY <= not aw_seen_reg;
-                S_AXI_WREADY  <= not w_seen_reg;
-
-                aw_accept := awvalid_reg and (not aw_seen_reg);
-                w_accept  := wvalid_reg and (not w_seen_reg); 
-
                 if (aw_accept = '1') then
                     aw_seen_next <= '1';
                     axi4_lite_wr_addr_offset_next <= S_AXI_AWADDR(3 downto 0);
-                    S_AXI_AWREADY <= '0';
+                    awready_next <= '0';
                 end if;
 
                 if (w_accept = '1') then
                     w_seen_next <= '1';
                     axi4_lite_wr_data_next <= S_AXI_WDATA;
-                    S_AXI_WREADY <= '0';
+                    wready_next <= '0';
                 end if;
 
                 if ((aw_seen_reg = '1' or aw_accept = '1') and
@@ -279,14 +304,17 @@ begin
                 aw_seen_next <= '0';
                 w_seen_next <= '0';
 
+                bvalid_next <= '1';
                 state_next <= S_WRITE_RESP;
 
             when S_WRITE_RESP =>
 
-                S_AXI_BVALID <= '1';
-                S_AXI_BRESP <= bresp_reg;
+                if (b_accept = '1') then
+                    bvalid_next <= '0';
 
-                if (S_AXI_BREADY = '1') then
+                    awready_next <= '1';
+                    wready_next <= '1';
+
                     state_next <= S_IDLE;
                 end if;
 
@@ -298,34 +326,37 @@ begin
     process(all)
 
         variable ar_accept : std_logic;
+        variable r_accept  : std_logic;
 
     begin
 
         -- Defaults
         read_state_next <= read_state_reg;
 
+        arready_next <= arready_reg;
+        rvalid_next <= rvalid_reg;
+
         axi4_lite_rd_addr_offset_next <= axi4_lite_rd_addr_offset_reg;
         axi4_lite_rd_data_next <= axi4_lite_rd_data_reg;
 
         rresp_next <= rresp_reg;
 
-        S_AXI_ARREADY <= '0';
+        S_AXI_ARREADY <= arready_reg;
 
         S_AXI_RDATA <= axi4_lite_rd_data_reg;
         S_AXI_RRESP <= rresp_reg;
-        S_AXI_RVALID <= '0';
+        S_AXI_RVALID <= rvalid_reg;
 
-        ar_accept := '0';
+        ar_accept := S_AXI_ARVALID and arready_reg;
+        r_accept := rvalid_reg and S_AXI_RREADY;
 
         case read_state_reg is
 
             when S_READ_IDLE =>
 
-                S_AXI_ARREADY <= '1';
-
-                ar_accept := S_AXI_ARVALID;
-
                 if (ar_accept = '1') then
+
+                    arready_next <= '0';
 
                     axi4_lite_rd_addr_offset_next <= S_AXI_ARADDR(3 downto 0);
 
@@ -350,17 +381,17 @@ begin
 
                     end case;
 
+                    rvalid_next <= '1';
                     read_state_next <= S_READ_RESP;
 
                 end if;
 
             when S_READ_RESP =>
 
-                S_AXI_RVALID <= '1';
-                S_AXI_RDATA <= axi4_lite_rd_data_reg;
-                S_AXI_RRESP <= rresp_reg;
+                if (r_accept = '1') then
+                    rvalid_next <= '0';
+                    arready_next <= '1';
 
-                if (S_AXI_RREADY = '1') then
                     read_state_next <= S_READ_IDLE;
                 end if;
 

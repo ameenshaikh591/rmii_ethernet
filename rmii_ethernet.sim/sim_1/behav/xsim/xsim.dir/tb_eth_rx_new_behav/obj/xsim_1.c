@@ -276,8 +276,8 @@ const int NumRelocateId= 216;
 void relocate(char *dp)
 {
 	iki_relocate(dp, "xsim.dir/tb_eth_rx_new_behav/xsim.reloc",  (void **)funcTab, 216);
-	iki_vhdl_file_variable_register(dp + 109440);
-	iki_vhdl_file_variable_register(dp + 109496);
+	iki_vhdl_file_variable_register(dp + 111840);
+	iki_vhdl_file_variable_register(dp + 111896);
 
 
 	/*Populate the transaction function pointer field in the whole net structure */
@@ -294,23 +294,23 @@ void wrapper_func_0(char *dp)
 
 {
 
-	iki_vlog_schedule_transaction_signal_fast_vhdl_value_time_0(dp + 118608, dp + 120608, 0, 9, 0, 9, 10, 1);
+	iki_vlog_schedule_transaction_signal_fast_vhdl_value_time_0(dp + 121008, dp + 123008, 0, 9, 0, 9, 10, 1);
 
-	iki_vlog_schedule_transaction_signal_fast_vhdl_value_time_0(dp + 118688, dp + 120552, 0, 0, 0, 0, 1, 1);
+	iki_vlog_schedule_transaction_signal_fast_vhdl_value_time_0(dp + 121088, dp + 122952, 0, 0, 0, 0, 1, 1);
 
-	iki_vlog_schedule_transaction_signal_fast_vhdl_value_time_0(dp + 118744, dp + 121112, 0, 0, 0, 0, 1, 1);
+	iki_vlog_schedule_transaction_signal_fast_vhdl_value_time_0(dp + 121144, dp + 123512, 0, 0, 0, 0, 1, 1);
 
-	iki_vlog_schedule_transaction_signal_fast_vhdl_value_time_0(dp + 115288, dp + 120496, 0, 0, 0, 0, 1, 1);
+	iki_vlog_schedule_transaction_signal_fast_vhdl_value_time_0(dp + 117688, dp + 122896, 0, 0, 0, 0, 1, 1);
 
-	iki_vlog_schedule_transaction_signal_fast_vhdl_value_time_0(dp + 115008, dp + 121056, 0, 0, 0, 0, 1, 1);
+	iki_vlog_schedule_transaction_signal_fast_vhdl_value_time_0(dp + 117408, dp + 123456, 0, 0, 0, 0, 1, 1);
 
-	iki_vlog_schedule_transaction_signal_fast_vhdl_value_time_0(dp + 118912, dp + 120440, 0, 0, 0, 0, 1, 1);
+	iki_vlog_schedule_transaction_signal_fast_vhdl_value_time_0(dp + 121312, dp + 122840, 0, 0, 0, 0, 1, 1);
 
-	iki_vlog_schedule_transaction_signal_fast_vhdl_value_time_0(dp + 119288, dp + 120384, 0, 0, 0, 0, 1, 1);
+	iki_vlog_schedule_transaction_signal_fast_vhdl_value_time_0(dp + 121688, dp + 122784, 0, 0, 0, 0, 1, 1);
 
-	iki_vlog_schedule_transaction_signal_fast_vhdl_value_time_0(dp + 119344, dp + 121672, 0, 0, 0, 0, 1, 1);
+	iki_vlog_schedule_transaction_signal_fast_vhdl_value_time_0(dp + 121744, dp + 124072, 0, 0, 0, 0, 1, 1);
 
-	iki_vlog_schedule_transaction_signal_fast_vhdl_value_time_0(dp + 119400, dp + 121616, 0, 0, 0, 0, 1, 1);
+	iki_vlog_schedule_transaction_signal_fast_vhdl_value_time_0(dp + 121800, dp + 124016, 0, 0, 0, 0, 1, 1);
 
 }
 

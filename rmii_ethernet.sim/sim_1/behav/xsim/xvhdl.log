@@ -1,6 +1,8 @@
 INFO: [VRFC 10-163] Analyzing VHDL file "C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/src/eth_rx_package.vhd" into library xil_defaultlib
 INFO: [VRFC 10-163] Analyzing VHDL file "C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/src/eth_rx_dma/dma_axi_writer.vhd" into library xil_defaultlib
 INFO: [VRFC 10-3107] analyzing entity 'dma_axi_writer'
+INFO: [VRFC 10-163] Analyzing VHDL file "C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/src/eth_rx_dma/dma_status_manager.vhd" into library xil_defaultlib
+INFO: [VRFC 10-3107] analyzing entity 'dma_status_manager'
 INFO: [VRFC 10-163] Analyzing VHDL file "C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/src/eth_rx_dma/eth_rx_dma.vhd" into library xil_defaultlib
 INFO: [VRFC 10-3107] analyzing entity 'eth_rx_dma'
 INFO: [VRFC 10-163] Analyzing VHDL file "C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/src/eth_rx.vhd" into library xil_defaultlib

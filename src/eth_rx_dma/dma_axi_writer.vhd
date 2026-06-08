@@ -226,7 +226,6 @@ begin
             wr_addr_offset_next <= wr_addr_offset_reg + resize(chunk_byte_count_reg, wr_addr_offset_reg'length);
             chunk_byte_count_next <= (others => '0');
             axi_writer_state_next <= S_WAIT_B;
-
           else
             wr_addr_offset_next <= wr_addr_offset_reg + 4;
             chunk_byte_count_next <= chunk_byte_count_reg - 4;
