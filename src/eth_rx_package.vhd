@@ -74,11 +74,12 @@ package eth_rx_package is
         variable resp : out std_logic_vector(1 downto 0)
     );
 
-    procedure expect_axi_write_payload(
+    procedure axil_read(
         signal clk : in std_logic;
-        signal axi : inout t_axi_write_bus;
-        constant expected_base_addr : in std_logic_vector(C_M_AXI_ADDR_WIDTH-1 downto 0);
-        constant expected_data : in t_DATA
+        signal axil : inout t_axil_bus;
+        constant rd_addr : in std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0);
+        variable rd_data : out std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);
+        variable rd_resp : out std_logic_vector(1 downto 0)
     );
 
     procedure send_byte(
@@ -91,7 +92,8 @@ package eth_rx_package is
         constant dest_addr : in t_MAC_ADDR;
         constant src_addr : in t_MAC_ADDR;
         constant eth_type : in t_TYPE;
-        constant data : in t_DATA
+        constant data : in t_DATA;
+        constant payload_length : in integer
     );
 
 end package;
@@ -166,6 +168,7 @@ package body eth_rx_package is
     ) is
         variable aw_seen : boolean := false;
         variable w_seen  : boolean := false;
+        variable b_seen  : boolean := false;
     begin
 
         -- Synchronize with 'clk'
@@ -173,7 +176,6 @@ package body eth_rx_package is
         wait for 1 ns;
 
         -- Drive defaults/unused
-        axil.arprot <= "000";
         axil.awprot <= "000";
 
         axil.awvalid <= '1';
@@ -210,141 +212,76 @@ package body eth_rx_package is
         -- Wait for a write response
         axil.bready <= '1';
 
-        loop
+        while (not b_seen) loop
+
+            if (axil.bvalid = '1') then
+                b_seen := true;
+                resp := axil.bresp;
+            end if;
+
             wait until rising_edge(clk);
             wait for 1 ns;
 
-            exit when axil.bvalid = '1';
+            if (b_seen) then
+                axil.bready <= '0';
+            end if;
+
         end loop;
 
-        -- Save the write response
-        resp := axil.bresp;
-        axil.bready <= '0';
 
     end axil_write;
 
-    procedure expect_axi_write_payload(
+    procedure axil_read(
         signal clk : in std_logic;
-        signal axi : inout t_axi_write_bus;
-        constant expected_base_addr : in std_logic_vector(C_M_AXI_ADDR_WIDTH-1 downto 0);
-        constant expected_data : in t_DATA
+        signal axil : inout t_axil_bus;
+        constant rd_addr : in std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0);
+        variable rd_data : out std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);
+        variable rd_resp : out std_logic_vector(1 downto 0)
     ) is
-        constant c_AXI_RESP_OKAY : std_logic_vector(1 downto 0) := "00";
-        constant c_BYTES_PER_BEAT : natural := C_M_AXI_DATA_WIDTH / 8;
-
-        variable bytes_seen : natural := 0;
-        variable global_beat_idx : natural := 0;
-        variable beats_in_burst : natural := 0;
-        variable remaining_bytes : natural := 0;
-        variable valid_byte_count : natural := 0;
-        variable observed_byte_count : natural := 0;
-        variable expected_addr : std_logic_vector(C_M_AXI_ADDR_WIDTH-1 downto 0);
-        variable expected_wstrb : std_logic_vector((C_M_AXI_DATA_WIDTH/8)-1 downto 0);
-        variable actual_byte : std_logic_vector(7 downto 0);
-        variable expected_byte : std_logic_vector(7 downto 0);
+        variable ar_seen : boolean := false;
+        variable r_seen : boolean := false;
     begin
-        axi.awready <= '0';
-        axi.wready <= '0';
-        axi.bvalid <= '0';
-        axi.bresp <= c_AXI_RESP_OKAY;
+        wait until rising_edge(clk);
+        wait for 1 ns;
 
-        while bytes_seen < expected_data'length loop
-            expected_addr := std_logic_vector(
-                unsigned(expected_base_addr) + to_unsigned(bytes_seen, C_M_AXI_ADDR_WIDTH)
-            );
+        -- Drive defaults/unused
+        axil.arprot <= "000";
 
-            axi.awready <= '1';
+        axil.rready <= '0';
 
-            loop
-                wait until rising_edge(clk);
-                wait for 1 ns;
-                exit when axi.awvalid = '1';
-            end loop;
+        axil.arvalid <= '1';
+        axil.araddr <= rd_addr;
 
-            assert axi.awaddr = expected_addr
-                report "FAIL"
-                severity error;
+        while (not ar_seen) loop
+            if (axil.arready = '1') then
+                ar_seen := true;
+            end if;
 
-            assert axi.awsize = "010"
-                report "FAIL"
-                severity error;
+            wait until rising_edge(clk);
+            wait for 1 ns;
 
-            assert axi.awburst = "01"
-                report "FAIL"
-                severity error;
-
-            beats_in_burst := to_integer(unsigned(axi.awlen)) + 1;
-            axi.awready <= '0';
-
-            for beat_idx in 0 to beats_in_burst - 1 loop
-                assert bytes_seen < expected_data'length
-                    report "FAIL"
-                    severity error;
-
-                axi.wready <= '1';
-
-                loop
-                    wait until rising_edge(clk);
-                    wait for 1 ns;
-                    exit when axi.wvalid = '1';
-                end loop;
-
-                remaining_bytes := expected_data'length - bytes_seen;
-                valid_byte_count := min_natural(c_BYTES_PER_BEAT, remaining_bytes);
-                expected_wstrb := axi_wstrb_for_byte_count(valid_byte_count);
-                observed_byte_count := count_wstrb_bytes(axi.wstrb);
-
-                assert axi.wstrb = expected_wstrb
-                    report "FAIL"
-                    severity error;
-
-                assert observed_byte_count = valid_byte_count
-                    report "FAIL"
-                    severity error;
-
-                for byte_lane in 0 to c_BYTES_PER_BEAT - 1 loop
-                    if byte_lane < valid_byte_count then
-                        actual_byte := axi.wdata((8 * byte_lane) + 7 downto 8 * byte_lane);
-                        expected_byte := expected_data(expected_data'low + bytes_seen + byte_lane);
-
-                        assert actual_byte = expected_byte
-                            report "FAIL"
-                            severity error;
-                    end if;
-                end loop;
-
-                if beat_idx = beats_in_burst - 1 then
-                    assert axi.wlast = '1'
-                        report "FAIL"
-                        severity error;
-                else
-                    assert axi.wlast = '0'
-                        report "FAIL"
-                        severity error;
-                end if;
-
-                bytes_seen := bytes_seen + valid_byte_count;
-                global_beat_idx := global_beat_idx + 1;
-            end loop;
-
-            axi.wready <= '0';
-            axi.bvalid <= '1';
-            axi.bresp <= c_AXI_RESP_OKAY;
-
-            loop
-                wait until rising_edge(clk);
-                wait for 1 ns;
-                exit when axi.bready = '1';
-            end loop;
-
-            axi.bvalid <= '0';
+            if (ar_seen) then
+                axil.arvalid <= '0';
+            end if;
         end loop;
 
-        assert bytes_seen = expected_data'length
-            report "Expected " & integer'image(expected_data'length) &
-                   " AXI write payload bytes, Actual: " & integer'image(bytes_seen)
-            severity error;
-    end expect_axi_write_payload;
+        axil.rready <= '1';
+
+        while (not r_seen) loop
+            if (axil.rvalid = '1') then
+                r_seen := true;
+                rd_data := axil.rdata;
+                rd_resp := axil.rresp;
+            end if;
+
+            wait until rising_edge(clk);
+            wait for 1 ns;
+
+            if (r_seen) then
+                axil.rready <= '0';
+            end if;
+        end loop;
+    end axil_read;
 
     procedure send_byte(
         signal rmii : inout t_rmii_bus;
@@ -371,7 +308,8 @@ package body eth_rx_package is
         constant dest_addr : in t_MAC_ADDR;
         constant src_addr : in t_MAC_ADDR;
         constant eth_type : in t_TYPE;
-        constant data : in t_DATA
+        constant data : in t_DATA;
+        constant payload_length : in integer
     ) is
         variable crc : std_logic_vector(31 downto 0);
         variable fcs : std_logic_vector(31 downto 0);
@@ -408,7 +346,7 @@ package body eth_rx_package is
         end loop;
 
         -- Payload
-        for i in data'range loop
+        for i in 0 to (payload_length - 1) loop
             send_byte(rmii, data(i));
             crc := crc32_update(crc, data(i));
         end loop;

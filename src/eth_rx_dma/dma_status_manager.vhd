@@ -171,10 +171,10 @@ begin
                 rx_payload_region_base_addr_valid_reg <= '0';
 
                 axi4_lite_wr_addr_offset_reg <= (others => '0');
-                axi4_lite_wr_data_reg <= (others => '0');
+                -- axi4_lite_wr_data_reg <= (others => '0');
 
                 axi4_lite_rd_addr_offset_reg <= (others => '0');
-                axi4_lite_rd_data_reg <= (others => '0');
+                -- axi4_lite_rd_data_reg <= (others => '0');
 
                 head_reg <= (others => '0');
                 tail_reg <= (others => '0');

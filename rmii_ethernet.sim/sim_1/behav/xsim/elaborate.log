@@ -14,6 +14,9 @@ Compiling package std.textio
 Compiling package ieee.std_logic_1164
 Compiling package ieee.numeric_std
 Compiling package xil_defaultlib.eth_rx_package
+Compiling package xil_defaultlib.tb_dma_axi_master_pkg
+Compiling package ieee.math_real
+Compiling package xil_defaultlib.tb_rx_random_payload_pkg
 Compiling package std.env
 Compiling package xpm.vcomponents
 Compiling package vl.vl_types

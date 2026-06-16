@@ -17,8 +17,8 @@ entity eth_rx is
         i_crs_dv : in std_logic;
 
         -- AXI clock/reset
-        S_AXI_ACLK    : in std_logic;
-        S_AXI_ARESETN : in std_logic;
+        axi_aclk    : in std_logic;
+        axi_aresetn : in std_logic;
 
         -- AXI4-Lite write address channel
         S_AXI_AWADDR  : in  std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0);
@@ -70,6 +70,7 @@ entity eth_rx is
         M_AXI_BVALID : in  std_logic;
         M_AXI_BREADY : out std_logic
     );
+    
 end entity;
 
 architecture rtl of eth_rx is
@@ -93,7 +94,7 @@ architecture rtl of eth_rx is
 
 begin
 
-    fifo_rst <= not S_AXI_ARESETN;
+    fifo_rst <= not axi_aresetn;
 
     fifo_din <= mac_rx_wr_data;
 
@@ -154,7 +155,7 @@ begin
             wr_en => fifo_wr_en,
             rd_en => fifo_rd_en,
             wr_clk => i_ref_clk,
-            rd_clk => S_AXI_ACLK,
+            rd_clk => axi_aclk,
             rst => fifo_rst,
 
             sleep => '0',
@@ -164,7 +165,7 @@ begin
 
     rmii_mac_rx_inst : entity work.rmii_mac_rx
         port map (
-            i_rst_n   => S_AXI_ARESETN,
+            i_rst_n   => axi_aresetn,
             i_ref_clk => i_ref_clk,
 
             i_rxd    => i_rxd,
@@ -179,8 +180,8 @@ begin
 
     eth_rx_dma_inst : entity work.eth_rx_dma
         port map (
-            i_aresetn => S_AXI_ARESETN,
-            i_aclk    => S_AXI_ACLK,
+            i_aresetn => axi_aresetn,
+            i_aclk    => axi_aclk,
 
             i_rx_fifo_dout  => fifo_dout,
             i_rx_fifo_empty => dma_fifo_empty,

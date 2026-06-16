@@ -212,25 +212,21 @@ begin
     variable buf_index  : integer;
   begin
     if rising_edge(i_aclk) then
-      if (i_aresetn = '0') then
-        ping_pong_buf_reg <= (others => (others => (others => '0')));
-      else
-        if (buf_wr_en = '1') then
-          buf_index  := to_integer(unsigned'(0 => buf_wr_id));
-          word_index := to_integer(buf_wr_addr(3 downto 2));
-          byte_index := to_integer(buf_wr_addr(1 downto 0));
+      if (buf_wr_en = '1') then
+        buf_index  := to_integer(unsigned'(0 => buf_wr_id));
+        word_index := to_integer(buf_wr_addr(3 downto 2));
+        byte_index := to_integer(buf_wr_addr(1 downto 0));
 
-          case byte_index is
-            when 0 =>
-              ping_pong_buf_reg(buf_index, word_index)(7 downto 0) <= buf_wr_data;
-            when 1 =>
-              ping_pong_buf_reg(buf_index, word_index)(15 downto 8) <= buf_wr_data;
-            when 2 =>
-              ping_pong_buf_reg(buf_index, word_index)(23 downto 16) <= buf_wr_data;
-            when others =>
-              ping_pong_buf_reg(buf_index, word_index)(31 downto 24) <= buf_wr_data;
-          end case;
-        end if;
+        case byte_index is
+          when 0 =>
+            ping_pong_buf_reg(buf_index, word_index)(7 downto 0) <= buf_wr_data;
+          when 1 =>
+            ping_pong_buf_reg(buf_index, word_index)(15 downto 8) <= buf_wr_data;
+          when 2 =>
+            ping_pong_buf_reg(buf_index, word_index)(23 downto 16) <= buf_wr_data;
+          when others =>
+            ping_pong_buf_reg(buf_index, word_index)(31 downto 24) <= buf_wr_data;
+        end case;
       end if;
     end if;
   end process;

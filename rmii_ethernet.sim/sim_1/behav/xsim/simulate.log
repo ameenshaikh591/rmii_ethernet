@@ -1,1 +1,88 @@
 Time resolution is 1 ps
+Note: INFO: Correct match between 'expected_payload' and 'recorded_payload'
+Time: 24941 ns  Iteration: 0  Process: /tb_eth_rx_new/line__329  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: Tail pointer after DMA write: 1
+Time: 25031 ns  Iteration: 1  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: Actual tail meets expected tail; permitting head update
+Time: 25031 ns  Iteration: 3  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: Head update complete
+Time: 25071 ns  Iteration: 1  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: AXI4-Lite write for head update complete
+Time: 25071 ns  Iteration: 3  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: Head pointer after DMA write: 1
+Time: 25071 ns  Iteration: 3  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: INFO: Correct match between 'expected_payload' and 'recorded_payload'
+Time: 44721 ns  Iteration: 0  Process: /tb_eth_rx_new/line__329  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: Tail pointer after DMA write: 2
+Time: 44811 ns  Iteration: 1  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: Actual tail meets expected tail; permitting head update
+Time: 44811 ns  Iteration: 3  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: Head update complete
+Time: 44851 ns  Iteration: 1  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: AXI4-Lite write for head update complete
+Time: 44851 ns  Iteration: 3  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: Head pointer after DMA write: 2
+Time: 44851 ns  Iteration: 3  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: INFO: Correct match between 'expected_payload' and 'recorded_payload'
+Time: 57391 ns  Iteration: 0  Process: /tb_eth_rx_new/line__329  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: Tail pointer after DMA write: 3
+Time: 57481 ns  Iteration: 1  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: Actual tail meets expected tail; permitting head update
+Time: 57481 ns  Iteration: 3  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: Head update complete
+Time: 57521 ns  Iteration: 1  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: AXI4-Lite write for head update complete
+Time: 57521 ns  Iteration: 3  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: Head pointer after DMA write: 3
+Time: 57521 ns  Iteration: 3  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: INFO: Correct match between 'expected_payload' and 'recorded_payload'
+Time: 77981 ns  Iteration: 0  Process: /tb_eth_rx_new/line__329  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: Tail pointer after DMA write: 0
+Time: 78071 ns  Iteration: 1  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: Actual tail meets expected tail; permitting head update
+Time: 78071 ns  Iteration: 3  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: Head update complete
+Time: 78111 ns  Iteration: 1  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: AXI4-Lite write for head update complete
+Time: 78111 ns  Iteration: 3  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: Head pointer after DMA write: 0
+Time: 78111 ns  Iteration: 3  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: INFO: Correct match between 'expected_payload' and 'recorded_payload'
+Time: 93361 ns  Iteration: 0  Process: /tb_eth_rx_new/line__329  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: Tail pointer after DMA write: 1
+Time: 93451 ns  Iteration: 1  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: Actual tail meets expected tail; permitting head update
+Time: 93451 ns  Iteration: 3  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: Head update complete
+Time: 93491 ns  Iteration: 1  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: AXI4-Lite write for head update complete
+Time: 93491 ns  Iteration: 3  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: Head pointer after DMA write: 1
+Time: 93491 ns  Iteration: 3  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: INFO: Correct match between 'expected_payload' and 'recorded_payload'
+Time: 111301 ns  Iteration: 0  Process: /tb_eth_rx_new/line__329  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: Tail pointer after DMA write: 2
+Time: 111391 ns  Iteration: 1  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: Actual tail meets expected tail; permitting head update
+Time: 111391 ns  Iteration: 3  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: Head update complete
+Time: 111431 ns  Iteration: 1  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: AXI4-Lite write for head update complete
+Time: 111431 ns  Iteration: 3  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: Head pointer after DMA write: 2
+Time: 111431 ns  Iteration: 3  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: INFO: Correct match between 'expected_payload' and 'recorded_payload'
+Time: 129611 ns  Iteration: 0  Process: /tb_eth_rx_new/line__329  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: Tail pointer after DMA write: 3
+Time: 129701 ns  Iteration: 1  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: Actual tail meets expected tail; permitting head update
+Time: 129701 ns  Iteration: 3  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: Head update complete
+Time: 129741 ns  Iteration: 1  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: AXI4-Lite write for head update complete
+Time: 129741 ns  Iteration: 3  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: Head pointer after DMA write: 3
+Time: 129741 ns  Iteration: 3  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+Note: Test: Finished
+Time: 129891 ns  Iteration: 0  Process: /tb_eth_rx_new/line__350  File: C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd
+$stop called at time : 129891 ns : File "C:/Users/ameen.shaikh/Desktop/projects/rmii_ethernet/sim/tb_eth_rx_new.vhd" Line 413

@@ -85,8 +85,8 @@ begin
     if rising_edge(i_aclk) then
       if (i_aresetn = '0') then
         axi_writer_state_reg <= S_IDLE;
-        wr_base_addr_reg <= (others => '0');
-        wr_addr_offset_reg <= (others => '0');
+       -- wr_base_addr_reg <= (others => '0');
+       -- wr_addr_offset_reg <= (others => '0');
         chunk_byte_count_reg <= (others => '0');
         buf_addr_reg <= (others => '0');
         chunk_buf_id_reg <= '0';
@@ -188,10 +188,23 @@ begin
         if (i_chunk_valid = '1') then
 
           if (i_chunk_error = '1') then
+          -- If this chunk is marked with 'i_chunk_error', then some byte within the current payload is corrupted
+          -- Reset state so the next payload overwrites the same memory location
             wr_addr_offset_next <= (others => '0');
             buf_addr_next <= (others => '0');
             chunk_byte_count_next <= (others => '0');
             last_next <= '0';
+
+          elsif (i_chunk_last = '1' and i_chunk_byte_count = 0) then
+            -- If this chunk is marked with 'i_chunk_last' and 'i_chunk_byte_count' = 0,
+            -- this chunk is empty and is being used to indicate the full payload has been sent with previous chunks
+            -- 'AXI Writer' can reset its state and assert 'o_frame_done' to indicate it has completed writing the payload to memory
+            o_frame_done <= '1';
+            wr_addr_offset_next <= (others => '0');
+            buf_addr_next <= (others => '0');
+            chunk_byte_count_next <= (others => '0');
+            last_next <= '0';
+            axi_writer_state_next <= S_IDLE;
 
           else
             last_next <= i_chunk_last;

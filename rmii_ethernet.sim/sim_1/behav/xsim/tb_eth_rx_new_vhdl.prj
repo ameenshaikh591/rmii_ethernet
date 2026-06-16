@@ -11,6 +11,12 @@ vhdl2008 xil_defaultlib  \
 vhdl xil_defaultlib  \
 "../../../../src/eth_rx_dma/eth_rx_dma.vhd" \
 "../../../../src/eth_rx.vhd" \
+
+vhdl2008 xil_defaultlib  \
+"../../../../sim/tb_dma_axi_master_pkg.vhd" \
+"../../../../sim/tb_rx_random_payload_pkg.vhd" \
+
+vhdl xil_defaultlib  \
 "../../../../sim/tb_eth_rx_new.vhd" \
 
 # Do not sort compile order

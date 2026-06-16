@@ -186,17 +186,9 @@ begin
                 elsif (chunk_byte(LAST_BIT) = '1') then
 
                     -- Last byte contains no payload byte
-
-                    -- If the buffer is empty, transition back to IDLE state
-                    -- Otherwise, offer the existing chunk in the buffer to the DMA writer
-                    if (chunk_byte_count_reg = 0) then
-                        state_next <= S_IDLE;
-                        chunk_last_next <= '0';
-                        chunk_error_next <= '0';
-                    else
-                        -- Offer final chunk to AXI writer
-                        offer_chunk('1', '0');
-                    end if;
+                    -- If chunk_byte_count_reg = 0, this is an empty final chunk
+                    -- used only to mark end-of-frame.
+                    offer_chunk('1', '0');
 
                 else
 
