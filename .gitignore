@@ -1,0 +1,26 @@
+# Vivado generated files
+*.jou
+*.log
+*.str
+
+*.cache/
+*.gen/
+*.hw/
+*.ip_user_files/
+*.runs/
+*.sim/
+*.srcs/
+*.Xil/
+
+# Vivado project
+*.xpr
+
+# Temporary files
+*.tmp
+
+# QuestaSim
+work/
+questasim/
+transcript
+vsim.wlf
+modelsim.ini
