@@ -68,7 +68,10 @@ entity eth_rx is
         -- AXI master write response channel
         M_AXI_BRESP  : in  std_logic_vector(1 downto 0);
         M_AXI_BVALID : in  std_logic;
-        M_AXI_BREADY : out std_logic
+        M_AXI_BREADY : out std_logic;
+
+        -- Debug signals
+        debug_mac_rx_valid : out std_logic
     );
     
 end entity;
@@ -93,6 +96,8 @@ architecture rtl of eth_rx is
     signal dma_fifo_rd_en : std_logic;
 
 begin
+
+    debug_mac_rx_valid <= mac_rx_valid;
 
     fifo_rst <= not axi_aresetn;
 

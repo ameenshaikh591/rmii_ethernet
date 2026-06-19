@@ -67,6 +67,13 @@ architecture rtl of rmii_mac_rx is
     signal pending_err_q : std_logic;
     signal pending_err_d : std_logic;
 
+    signal dbg_rx_state : std_logic_vector(2 downto 0);
+
+    attribute mark_debug : string;
+
+    attribute mark_debug of dbg_rx_state : signal is "true";
+    attribute mark_debug of rx_shift_q : signal is "true";
+
     function crc32_update(
         crc_in : std_logic_vector(31 downto 0);
         data : std_logic_vector(7 downto 0)
@@ -86,6 +93,15 @@ architecture rtl of rmii_mac_rx is
         return std_logic_vector(crc);
     end function;
 begin
+
+    with rx_state_q select
+        dbg_rx_state <=
+            "000" when s_PREAMBLE,
+            "001" when s_DEST_ADDR,
+            "010" when s_SRC_ADDR,
+            "011" when s_TYPE,
+            "100" when s_DATA,
+            "111" when others;
 
     process(all) is
     begin

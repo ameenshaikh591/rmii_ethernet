@@ -2,6 +2,8 @@
 *.jou
 *.log
 *.str
+*.xsa
+*.ioplanning
 
 *.cache/
 *.gen/
@@ -11,6 +13,7 @@
 *.sim/
 *.srcs/
 *.Xil/
+
 
 # Vivado project
 *.xpr
