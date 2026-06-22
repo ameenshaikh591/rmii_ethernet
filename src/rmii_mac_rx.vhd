@@ -73,6 +73,8 @@ architecture rtl of rmii_mac_rx is
 
     attribute mark_debug of dbg_rx_state : signal is "true";
     attribute mark_debug of rx_shift_q : signal is "true";
+    attribute mark_debug of rx_shift_ctr_q : signal is "true";
+    attribute mark_debug of rx_shift_d : signal is "true";
 
     function crc32_update(
         crc_in : std_logic_vector(31 downto 0);
