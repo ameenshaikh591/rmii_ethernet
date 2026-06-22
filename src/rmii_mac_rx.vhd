@@ -22,6 +22,16 @@ architecture rtl of rmii_mac_rx is
     type t_RX_STATE is 
         (s_PREAMBLE, s_DEST_ADDR, s_SRC_ADDR, s_TYPE, s_DATA);
 
+    signal rxd_2_reg : std_logic_vector(1 downto 0);
+    signal rxd_1_reg : std_logic_vector(1 downto 0);
+
+    -- 'i_crs_dv' is asserted asynchronously to 'i_ref_clk'
+    -- Need to use 2FF synchronizer to mitigate effects of metastability
+    -- Also need an additional '3' register to save the previous cycle value
+    signal crs_dv_3_reg : std_logic;
+    signal crs_dv_2_reg : std_logic;
+    signal crs_dv_1_reg : std_logic;
+
     signal rx_state_q : t_RX_STATE;
     signal rx_state_d : t_RX_STATE;
 
@@ -46,8 +56,9 @@ architecture rtl of rmii_mac_rx is
         x"00", x"11", x"22", x"33", x"44", x"55"
     );
 
-    signal crs_dv_q : std_logic; 
-    signal crs_dv_d : std_logic;
+    -- signal crs_dv_q : std_logic; 
+    -- signal crs_dv_d : std_logic;
+    signal rx_dv : std_logic;
 
     signal rx_fifo_valid_q : std_logic;
     signal rx_fifo_valid_d : std_logic;
@@ -121,12 +132,11 @@ begin
                 rx_shift_q <= (others => '0');
                 rx_shift_ctr_q <= (others => '0');
                 rx_byte_ctr_q <= (others => '0');
-                delay_buf_ctr_q <= (others => '0');
-                delay_buf_q <= (others => (others => '0'));
-                crs_dv_q <= '0';
+                -- delay_buf_ctr_q <= (others => '0'); -- Unnecessary reset
+                -- delay_buf_q <= (others => (others => '0')); -- Unnecessary reset
                 rx_fifo_valid_q <= '0';
                 rx_fifo_wr_data_q <= (others => '0');
-                crc_q <= x"FFFFFFFF";
+                -- crc_q <= x"FFFFFFFF"; -- Unnecessary reset
                 frame_ready_q <= '0';
                 pending_err_q <= '0';
             else
@@ -136,15 +146,23 @@ begin
                 rx_byte_ctr_q <= rx_byte_ctr_d;
                 delay_buf_ctr_q <= delay_buf_ctr_d;
                 delay_buf_q <= delay_buf_d;
-                crs_dv_q <= crs_dv_d;
                 rx_fifo_valid_q <= rx_fifo_valid_d;
                 rx_fifo_wr_data_q <= rx_fifo_wr_data_d;
                 crc_q <= crc_d;
                 frame_ready_q <= frame_ready_d;
                 pending_err_q <= pending_err_d;
+
+                rxd_1_reg <= i_rxd;
+                rxd_2_reg <= rxd_1_reg;
+
+                crs_dv_1_reg <= i_crs_dv;
+                crs_dv_2_reg <= crs_dv_1_reg;
+                crs_dv_3_reg <= crs_dv_2_reg;
             end if;
         end if;
     end process;
+
+    rx_dv <= crs_dv_2_reg or crs_dv_3_reg;
 
     process(all) is
         variable v_rx_shift_d : std_logic_vector(7 downto 0);
@@ -168,12 +186,13 @@ begin
         delay_buf_d <= delay_buf_q;
         delay_buf_ctr_d <= delay_buf_ctr_q;
         rx_byte_ctr_d <= rx_byte_ctr_q;
-        crs_dv_d <= i_crs_dv;
+        -- crs_dv_d <= i_crs_dv;
         rx_fifo_valid_d <= '0';
         rx_fifo_wr_data_d <= rx_fifo_wr_data_q;
         crc_d <= crc_q;
         frame_ready_d <= frame_ready_q;
         pending_err_d <= pending_err_q;
+         
 
         -- If 'pending_err' is set, attempt to push the error to the RX Fifo once non-full
         try_push_pending_err;
@@ -181,25 +200,25 @@ begin
         case rx_state_q is
             when s_PREAMBLE =>
 
-                if (i_crs_dv = '1') then
-                    v_rx_shift_d := i_rxd & rx_shift_q(7 downto 2);
+                if (rx_dv = '1') then
+                    v_rx_shift_d := rxd_2_reg & rx_shift_q(7 downto 2);
                     rx_shift_d <= v_rx_shift_d;
 
-                    if (rx_shift_ctr_q = 3) then
+                    -- SFD detection
+                    if (v_rx_shift_d = x"D5" and frame_ready_q = '1') then
+                        rx_state_d <= s_DEST_ADDR;
+
+                        -- Reset CRC
+                        crc_d <= x"FFFFFFFF";
+
+                        -- Prepare for the incoming frame
+                        delay_buf_ctr_d <= (others => '0');
+                        rx_byte_ctr_d <= (others => '0');
+                        frame_ready_d <= '0';
                         rx_shift_ctr_d <= (others => '0');
 
-                        if (v_rx_shift_d = x"D5" and frame_ready_q = '1') then
-                            rx_state_d <= s_DEST_ADDR;
-
-                            -- Reset CRC
-                            crc_d <= x"FFFFFFFF";
-                            delay_buf_ctr_d <= (others => '0');
-                            rx_byte_ctr_d <= (others => '0');
-                            frame_ready_d <= '0';
-                        end if;
-                    else
-                        rx_shift_ctr_d <= rx_shift_ctr_q + 1;
                     end if;
+
                 else
                     rx_shift_ctr_d <= (others => '0');
                     frame_ready_d <= '1';
@@ -207,8 +226,8 @@ begin
 
             when s_DEST_ADDR =>
 
-                if (i_crs_dv = '1') then
-                    v_rx_shift_d := i_rxd & rx_shift_q(7 downto 2);
+                if (rx_dv = '1') then
+                    v_rx_shift_d := rxd_2_reg & rx_shift_q(7 downto 2);
                     rx_shift_d <= v_rx_shift_d;
 
                     if (rx_shift_ctr_q = 3) then
@@ -241,8 +260,8 @@ begin
                 
             when s_SRC_ADDR =>
 
-                if (i_crs_dv = '1') then
-                    v_rx_shift_d := i_rxd & rx_shift_q(7 downto 2);
+                if (rx_dv = '1') then
+                    v_rx_shift_d := rxd_2_reg & rx_shift_q(7 downto 2);
                     rx_shift_d <= v_rx_shift_d;
 
                     if (rx_shift_ctr_q = 3) then
@@ -268,8 +287,8 @@ begin
                 
             when s_TYPE =>
 
-                if (i_crs_dv = '1') then
-                    v_rx_shift_d := i_rxd & rx_shift_q(7 downto 2);
+                if (rx_dv = '1') then
+                    v_rx_shift_d := rxd_2_reg & rx_shift_q(7 downto 2);
                     rx_shift_d <= v_rx_shift_d;
 
                     if (rx_shift_ctr_q = 3) then
@@ -296,8 +315,8 @@ begin
 
             when s_DATA =>
 
-                if (i_crs_dv = '1') then
-                    v_rx_shift_d := i_rxd & rx_shift_q(7 downto 2);
+                if (rx_dv = '1') then
+                    v_rx_shift_d := rxd_2_reg & rx_shift_q(7 downto 2);
                     rx_shift_d <= v_rx_shift_d;
 
                     if (rx_shift_ctr_q = 3) then
@@ -335,8 +354,7 @@ begin
                     else
                         rx_shift_ctr_d <= rx_shift_ctr_q + 1;
                     end if;
-
-                elsif (i_crs_dv = '0' and crs_dv_q = '1') then
+                else
                     if (i_rx_fifo_full = '1' or pending_err_q = '1') then
                         -- Error: Cannot append to RX Fifo
                         -- Set 'pending_err' (if not already)
@@ -368,13 +386,12 @@ begin
                             frame_ready_d <= '1';
                         end if;
                     end if;
-                else 
-                    -- Some error, indicate the error and reset
-                    rx_fifo_valid_d <= '1';
-                    rx_fifo_wr_data_d <= "11" & x"00";
-                    rx_state_d <= s_PREAMBLE;
                 end if;
-
+                    -- Some error, indicate the error and reset
+                    --rx_fifo_valid_d <= '1';
+                    --rx_fifo_wr_data_d <= "11" & x"00";
+                    --rx_state_d <= s_PREAMBLE;
+                    --end if;
         end case;
     end process;
 end architecture;
