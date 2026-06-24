@@ -1,11 +1,10 @@
 from scapy.all import *
 
-payload = bytes(range(256))
-
-frame = Ether(
+pkt = Ether(
     dst="00:11:22:33:44:55",
-    src="AA:BB:CC:DD:EE:FF",
-    type=0x0800
-) / Raw(payload)
+    src="24:6a:0e:82:58:14",
+    type=0x88B5
+) / Raw(b"hello fpga")
+hexdump(pkt)
 
-sendp(frame, iface="Ethernet")
+sendp(pkt, iface="Intel(R) Ethernet Connection (17) I219-LM")

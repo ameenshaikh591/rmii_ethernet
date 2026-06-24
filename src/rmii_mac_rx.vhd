@@ -52,9 +52,7 @@ architecture rtl of rmii_mac_rx is
     signal delay_buf_ctr_d : unsigned(2 downto 0);
 
     type t_MAC_ADDR is array (0 to 5) of std_logic_vector(7 downto 0);
-    constant mac_addr : t_MAC_ADDR := (
-        x"00", x"11", x"22", x"33", x"44", x"55"
-    );
+
 
     -- signal crs_dv_q : std_logic; 
     -- signal crs_dv_d : std_logic;
@@ -68,9 +66,6 @@ architecture rtl of rmii_mac_rx is
 
     signal crc_q : std_logic_vector(31 downto 0);
     signal crc_d : std_logic_vector(31 downto 0);
-
-    signal frame_ready_q : std_logic;
-    signal frame_ready_d : std_logic;
 
     signal i_rst_n1 : std_logic := '0';
     signal i_rst_n2 : std_logic := '0';
@@ -87,6 +82,14 @@ architecture rtl of rmii_mac_rx is
     attribute mark_debug of rx_shift_ctr_q : signal is "true";
     attribute mark_debug of rx_shift_d : signal is "true";
 
+    constant mac_addr : t_MAC_ADDR := (
+        x"00", x"11", x"22", x"33", x"44", x"55"
+    );
+
+    constant INIT_CRC : std_logic_vector(31 downto 0) := x"FFFFFFFF";
+
+    constant SFD : std_logic_vector(7 downto 0) := x"D5";
+    
     function crc32_update(
         crc_in : std_logic_vector(31 downto 0);
         data : std_logic_vector(7 downto 0)
@@ -116,12 +119,6 @@ begin
             "100" when s_DATA,
             "111" when others;
 
-    process(all) is
-    begin
-        o_rx_fifo_valid <= rx_fifo_valid_q;
-        o_rx_fifo_wr_data <= rx_fifo_wr_data_q;
-    end process;
-
     process(i_ref_clk) is
     begin
         if rising_edge(i_ref_clk) then
@@ -132,12 +129,8 @@ begin
                 rx_shift_q <= (others => '0');
                 rx_shift_ctr_q <= (others => '0');
                 rx_byte_ctr_q <= (others => '0');
-                -- delay_buf_ctr_q <= (others => '0'); -- Unnecessary reset
-                -- delay_buf_q <= (others => (others => '0')); -- Unnecessary reset
                 rx_fifo_valid_q <= '0';
                 rx_fifo_wr_data_q <= (others => '0');
-                -- crc_q <= x"FFFFFFFF"; -- Unnecessary reset
-                frame_ready_q <= '0';
                 pending_err_q <= '0';
             else
                 rx_state_q <= rx_state_d;
@@ -149,12 +142,9 @@ begin
                 rx_fifo_valid_q <= rx_fifo_valid_d;
                 rx_fifo_wr_data_q <= rx_fifo_wr_data_d;
                 crc_q <= crc_d;
-                frame_ready_q <= frame_ready_d;
                 pending_err_q <= pending_err_d;
-
                 rxd_1_reg <= i_rxd;
                 rxd_2_reg <= rxd_1_reg;
-
                 crs_dv_1_reg <= i_crs_dv;
                 crs_dv_2_reg <= crs_dv_1_reg;
                 crs_dv_3_reg <= crs_dv_2_reg;
@@ -162,7 +152,12 @@ begin
         end if;
     end process;
 
-    rx_dv <= crs_dv_2_reg or crs_dv_3_reg;
+    process(all) is
+    begin
+        rx_dv <= crs_dv_2_reg or crs_dv_3_reg;
+        o_rx_fifo_valid <= rx_fifo_valid_q;
+        o_rx_fifo_wr_data <= rx_fifo_wr_data_q;
+    end process;
 
     process(all) is
         variable v_rx_shift_d : std_logic_vector(7 downto 0);
@@ -186,11 +181,9 @@ begin
         delay_buf_d <= delay_buf_q;
         delay_buf_ctr_d <= delay_buf_ctr_q;
         rx_byte_ctr_d <= rx_byte_ctr_q;
-        -- crs_dv_d <= i_crs_dv;
         rx_fifo_valid_d <= '0';
         rx_fifo_wr_data_d <= rx_fifo_wr_data_q;
         crc_d <= crc_q;
-        frame_ready_d <= frame_ready_q;
         pending_err_d <= pending_err_q;
          
 
@@ -205,23 +198,16 @@ begin
                     rx_shift_d <= v_rx_shift_d;
 
                     -- SFD detection
-                    if (v_rx_shift_d = x"D5" and frame_ready_q = '1') then
+                    if (v_rx_shift_d = SFD) then
                         rx_state_d <= s_DEST_ADDR;
-
                         -- Reset CRC
-                        crc_d <= x"FFFFFFFF";
+                        crc_d <= INIT_CRC;
 
                         -- Prepare for the incoming frame
                         delay_buf_ctr_d <= (others => '0');
                         rx_byte_ctr_d <= (others => '0');
-                        frame_ready_d <= '0';
                         rx_shift_ctr_d <= (others => '0');
-
                     end if;
-
-                else
-                    rx_shift_ctr_d <= (others => '0');
-                    frame_ready_d <= '1';
                 end if;
 
             when s_DEST_ADDR =>
@@ -376,22 +362,15 @@ begin
                             rx_fifo_valid_d <= '1';
                             rx_fifo_wr_data_d <= "10" & x"00";
                             rx_state_d <= s_PREAMBLE;
-                            frame_ready_d <= '1';
                         else
                             -- Received frame is corrupted
                             -- Send a byte indicating end of corrupted frame
                             rx_fifo_valid_d <= '1';
                             rx_fifo_wr_data_d <= "11" & x"00";
                             rx_state_d <= s_PREAMBLE;
-                            frame_ready_d <= '1';
                         end if;
                     end if;
                 end if;
-                    -- Some error, indicate the error and reset
-                    --rx_fifo_valid_d <= '1';
-                    --rx_fifo_wr_data_d <= "11" & x"00";
-                    --rx_state_d <= s_PREAMBLE;
-                    --end if;
         end case;
     end process;
 end architecture;
