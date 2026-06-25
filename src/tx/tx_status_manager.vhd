@@ -1,7 +1,41 @@
 library ieee;
 use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+-- Register Map
+
+-- Control Registers Offset : x"00";
+-- PAYLOAD_BASE_REG : x"00" : R/W;
+-- TAIL_PTR_REG : x"04" : R/W;
+-- HEAD_PTR_REG : x"08" : R;
+
+-- Entry0 Registers Offset : x"10";
+-- DEST_MAC_ADDR_LOW_REG : x"10" : R/W;
+-- DEST_MAC_ADDR_HIGH_REG : x"14" : R/W;
+-- PAYLOAD_LENGTH_REG : x"18" : R/W;
+
+-- Entry1 Registers Offset : x"20";
+-- DEST_MAC_ADDR_LOW_REG : x"20" : R/W;
+-- DEST_MAC_ADDR_HIGH_REG : x"24" : R/W;
+-- PAYLOAD_LENGTH_REG : x"28" : R/W;
+
+-- Entry2 Registers Offset : x"30";
+-- DEST_MAC_ADDR_LOW_REG : x"30" : R/W;
+-- DEST_MAC_ADDR_HIGH_REG : x"34" : R/W;
+-- PAYLOAD_LENGTH_REG : x"38" : R/W;
+
+-- Entry3 Registers Offset : x"40";
+-- DEST_MAC_ADDR_LOW_REG : x"40" : R/W;
+-- DEST_MAC_ADDR_HIGH_REG : x"44" : R/W;
+-- PAYLOAD_LENGTH_REG : x"48" : R/W;
+
+
 
 entity tx_status_manager is
+    generic (
+        C_S_AXI_ADDR_WIDTH : integer := 32;
+        C_S_AXI_DATA_WIDTH : integer := 32
+    );
     port (
         -- AXI clock/reset
         axi_aclk    : in std_logic;
@@ -34,35 +68,84 @@ entity tx_status_manager is
         S_AXI_RDATA  : out std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);
         S_AXI_RRESP  : out std_logic_vector(1 downto 0);
         S_AXI_RVALID : out std_logic;
-        S_AXI_RREADY : in  std_logic;
+        S_AXI_RREADY : in  std_logic
     );
 end entity;
 
 architecture rtl of tx_status_manager is
-    type T_AXI_LITE_WRITE_FSM_STATE is (S_AWADDR, S_WDATA, S_WRITE_RESP); 
-    type T_AXI_LITE_READ_FSM_STATE is (S_IDLE, S_READ_RESP);
 
-    signal write_fsm_state_reg : T_AXI_LITE_WRITE_FSM_STATE;
+    constant C_TX_ADDR_OFFSET_WIDTH : integer := 8;
+
+    constant C_CTRL_ADDR_OFFSET : std_logic_vector(7 downto 0) := x"00";
+    constant C_ENTRY0_ADDR_OFFSET : std_logic_vector(7 downto 0) := x"10";
+    constant C_ENTRY1_ADDR_OFFSET : std_logic_vector(7 downto 0) := x"20";
+    constant C_ENTRY2_ADDR_OFFSET : std_logic_vector(7 downto 0) := x"30";
+    constant C_ENTRY3_ADDR_OFFSET : std_logic_vector(7 downto 0) := x"40";
+
+
+    type T_AXI_LITE_WRITE_FSM_STATE is (S_AWADDR, S_WDATA, S_UPDATE_REG, S_WRITE_OK, S_WRITE_ERR); 
+    type T_AXI_LITE_READ_FSM_STATE is (S_ARADDR, S_READ_DATA, S_READ_RESP);
+
+    type T_CTRL_REGS is array (0 to 2) of std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);
+    type T_ENTRY_REGS is array (0 to 2) of std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);
+
+    signal write_fsm_state_reg  : T_AXI_LITE_WRITE_FSM_STATE;
     signal write_fsm_state_next : T_AXI_LITE_WRITE_FSM_STATE;
-
-    -- Registered AXI-Lite slave inputs
-    signal s_axi_awvalid_reg : std_logic;
-    signal s_axi_wvalid_reg : std_logic;
     
-    signal s_axi_awaddr_reg : std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0);
-    signal s_axi_awaddr_next : std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0);
+    signal awaddr_reg  : std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0);
+    signal awaddr_next : std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0);
+
+    signal wdata_reg  : std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);
+    signal wdata_next : std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);
+
+    signal read_fsm_state_reg : T_AXI_LITE_READ_FSM_STATE;
+    signal read_fsm_state_next : T_AXI_LITE_READ_FSM_STATE;
+
+    
+    signal araddr_reg : std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0);
+    signal araddr_next : std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0);
+
+    signal rdata_reg : std_logic_vector(C_TX_ADDR_OFFSET_WIDTH-1 downto 0);
+    signal rdata_next : std_logic_vector(C_TX_ADDR_OFFSET_WIDTH-1 downto 0);
+
+    -- R/W registers
+    signal ctrl_regs      : T_CTRL_REGS;
+    signal ctrl_regs_next : T_CTRL_REGS;
+
+    signal entry0_regs      : T_ENTRY_REGS;
+    signal entry0_regs_next : T_ENTRY_REGS;
+
+    signal entry1_regs      : T_ENTRY_REGS;
+    signal entry1_regs_next : T_ENTRY_REGS;
+
+    signal entry2_regs      : T_ENTRY_REGS;
+    signal entry2_regs_next : T_ENTRY_REGS;
+
+    signal entry3_regs      : T_ENTRY_REGS;
+    signal entry3_regs_next : T_ENTRY_REGS;
 begin
 
+    -- Clocked process
     process(axi_aclk) is
     begin
         if rising_edge(axi_aclk) then
             if (axi_aresetn = '0') then
                 write_fsm_state_reg <= S_AWADDR;
+                read_fsm_state_reg <= S_ARADDR;
+                ctrl_regs(1) <= (others => '0');
+                ctrl_regs(2) <= (others => '0');
             else
                 write_fsm_state_reg <= write_fsm_state_next;
-                
-                -- Synchronous reads of incoming AXI-Lite ports
-                s_axi_awvalid_reg <= S_AXI_AWVALID;
+
+                awaddr_reg <= awaddr_next;
+                wdata_reg  <= wdata_next;
+
+                ctrl_regs <= ctrl_regs_next;
+
+                entry0_regs <= entry0_regs_next;
+                entry1_regs <= entry1_regs_next;
+                entry2_regs <= entry2_regs_next;
+                entry3_regs <= entry3_regs_next;
             end if;
         end if;
     end process;
@@ -70,28 +153,171 @@ begin
     process(all) is
     begin
         S_AXI_AWREADY <= '1' when write_fsm_state_reg = S_AWADDR else '0';
-        S_AXI_WREADY <= '1' when write_fsm_state_reg = S_WDATA else '0';
+        S_AXI_WREADY  <= '1' when write_fsm_state_reg = S_WDATA else '0';
+        S_AXI_BVALID <= '1' when (write_fsm_state_reg = S_WRITE_OK or write_fsm_state_reg = S_WRITE_ERR) else '0';
+        S_AXI_BRESP <= "10" when write_fsm_state_reg = S_WRITE_ERR else "00";
     end process;
 
     process(all) is
+        variable awaddr_offset : std_logic_vector(7 downto 0);
+        variable reg_idx : integer range 0 to 3;
     begin
         write_fsm_state_next <= write_fsm_state_reg;
-        s_axi_awaddr_next <= s_axi_awaddr_reg;
 
+        awaddr_next <= awaddr_reg;
+        wdata_next  <= wdata_reg;
+
+        ctrl_regs_next <= ctrl_regs;
+
+        entry0_regs_next <= entry0_regs;
+        entry1_regs_next <= entry1_regs;
+        entry2_regs_next <= entry2_regs;
+        entry3_regs_next <= entry3_regs;
 
         case write_fsm_state_reg is
 
-
             when S_AWADDR =>
-                if (s_axi_awvalid_reg = '1') then
-                    s_axi_awaddr_next <= S_AXI_AWADDR;
+                if (S_AXI_AWVALID = '1') then
+                    awaddr_next <= S_AXI_AWADDR;
                     write_fsm_state_next <= S_WDATA;
                 end if;
 
             when S_WDATA =>
-                if (s_axi_wvalid_reg = '1') then
-
+                if (S_AXI_WVALID = '1') then
+                    wdata_next <= S_AXI_WDATA;
+                    write_fsm_state_next <= S_UPDATE_REG;
                 end if; 
+
+            when S_UPDATE_REG =>
+                write_fsm_state_next <= S_WRITE_OK;
+
+                awaddr_offset := awaddr_reg(7 downto 4) & "0000";
+                reg_idx := to_integer(unsigned(awaddr_reg(3 downto 2)));
+
+                if (awaddr_reg(1 downto 0) /= "00") then
+                    write_fsm_state_next <= S_WRITE_ERR;
+                else
+                    case awaddr_offset is
+
+                        when C_CTRL_ADDR_OFFSET =>
+                            if (reg_idx <= 1) then
+                                ctrl_regs_next(reg_idx) <= wdata_reg;
+                            else
+                                write_fsm_state_next <= S_WRITE_ERR;
+                            end if;
+
+                        when C_ENTRY0_ADDR_OFFSET =>
+                            if (reg_idx <= 2) then
+                                entry0_regs_next(reg_idx) <= wdata_reg;
+                            else
+                                write_fsm_state_next <= S_WRITE_ERR;
+                            end if;
+
+                        when C_ENTRY1_ADDR_OFFSET =>
+                            if (reg_idx <= 2) then
+                                entry1_regs_next(reg_idx) <= wdata_reg;
+                            else
+                                write_fsm_state_next <= S_WRITE_ERR;
+                            end if;
+
+                        when C_ENTRY2_ADDR_OFFSET =>
+                            if (reg_idx <= 2) then
+                                entry2_regs_next(reg_idx) <= wdata_reg;
+                            else
+                                write_fsm_state_next <= S_WRITE_ERR;
+                            end if;
+
+                        when C_ENTRY3_ADDR_OFFSET =>
+                            if (reg_idx <= 2) then
+                                entry3_regs_next(reg_idx) <= wdata_reg;
+                            else
+                                write_fsm_state_next <= S_WRITE_ERR;
+                            end if;
+
+                        when others =>
+                            write_fsm_state_next <= S_WRITE_ERR;
+
+                    end case;
+                end if;
+
+            when S_WRITE_OK =>
+                if (S_AXI_BREADY = '1') then
+                    write_fsm_state_next <= S_AWADDR;
+                end if;
+
+            when S_WRITE_ERR =>
+                if (S_AXI_BREADY = '1') then
+                    write_fsm_state_next <= S_AWADDR;
+                end if;
+
+        end case;
+    end process;
+
+    -- Read side not implemented yet
+    process(all) is
+        S_AXI_ARREADY <= '1' when read_fsm_state_reg = S_ARADDR else '0';
+    begin
+        
+
+    end process;
+
+
+    process(all) is
+        variable araddr_offset : std_logic_vector(7 downto 0);
+        variable reg_idx : integer range 0 to 3;
+    begin
+
+        case read_fsm_state_reg is
+
+            when S_ARADDR =>
+                if (S_AXI_ARVALID = '1') then
+                    araddr_next <= S_AXI_ARADDR(C_TX_ADDR_OFFSET_WIDTH-1 downto 0);
+                    read_fsm_state_next <= S_READ_DATA;
+                end if;
+
+            when S_READ_DATA =>
+                    araddr_offset := araddr_reg(7 downto 4) & "0000";
+                    reg_idx := to_integer(unsigned(awaddr_reg(3 downto 2)));
+                    case araddr_offset is
+                        when C_CTRL_ADDR_OFFSET =>
+                            if (reg_idx <= 2) then
+                                rdata_next <= ctrl_regs_next(reg_idx);
+                            else
+                                write_fsm_state_next <= S_WRITE_ERR;
+                            end if;
+
+                        when C_ENTRY0_ADDR_OFFSET =>
+                            if (reg_idx <= 2) then
+                                entry0_regs_next(reg_idx) <= wdata_reg;
+                            else
+                                write_fsm_state_next <= S_WRITE_ERR;
+                            end if;
+
+                        when C_ENTRY1_ADDR_OFFSET =>
+                            if (reg_idx <= 2) then
+                                entry1_regs_next(reg_idx) <= wdata_reg;
+                            else
+                                write_fsm_state_next <= S_WRITE_ERR;
+                            end if;
+
+                        when C_ENTRY2_ADDR_OFFSET =>
+                            if (reg_idx <= 2) then
+                                entry2_regs_next(reg_idx) <= wdata_reg;
+                            else
+                                write_fsm_state_next <= S_WRITE_ERR;
+                            end if;
+
+                        when C_ENTRY3_ADDR_OFFSET =>
+                            if (reg_idx <= 2) then
+                                entry3_regs_next(reg_idx) <= wdata_reg;
+                            else
+                                write_fsm_state_next <= S_WRITE_ERR;
+                            end if;
+
+                        when others =>
+                            write_fsm_state_next <= S_WRITE_ERR;
+
+                    end case;
 
 
         end case;
