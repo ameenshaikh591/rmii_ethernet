@@ -84,7 +84,7 @@ architecture rtl of tx_status_manager is
 
 
     type T_AXI_LITE_WRITE_FSM_STATE is (S_AWADDR, S_WDATA, S_UPDATE_REG, S_WRITE_OK, S_WRITE_ERR); 
-    type T_AXI_LITE_READ_FSM_STATE is (S_ARADDR, S_READ_DATA, S_READ_RESP);
+    type T_AXI_LITE_READ_FSM_STATE is (S_ARADDR, S_READ_REG, S_READ_OK, S_READ_ERR);
 
     type T_CTRL_REGS is array (0 to 2) of std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);
     type T_ENTRY_REGS is array (0 to 2) of std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);
@@ -102,11 +102,11 @@ architecture rtl of tx_status_manager is
     signal read_fsm_state_next : T_AXI_LITE_READ_FSM_STATE;
 
     
-    signal araddr_reg : std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0);
-    signal araddr_next : std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0);
+    signal araddr_reg : std_logic_vector(C_TX_ADDR_OFFSET_WIDTH-1 downto 0);
+    signal araddr_next : std_logic_vector(C_TX_ADDR_OFFSET_WIDTH-1 downto 0);
 
-    signal rdata_reg : std_logic_vector(C_TX_ADDR_OFFSET_WIDTH-1 downto 0);
-    signal rdata_next : std_logic_vector(C_TX_ADDR_OFFSET_WIDTH-1 downto 0);
+    signal rdata_reg : std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);
+    signal rdata_next : std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);
 
     -- R/W registers
     signal ctrl_regs      : T_CTRL_REGS;
@@ -136,9 +136,12 @@ begin
                 ctrl_regs(2) <= (others => '0');
             else
                 write_fsm_state_reg <= write_fsm_state_next;
+                read_fsm_state_reg <= read_fsm_state_next;
 
                 awaddr_reg <= awaddr_next;
                 wdata_reg  <= wdata_next;
+                araddr_reg <= araddr_next;
+                rdata_reg  <= rdata_next;
 
                 ctrl_regs <= ctrl_regs_next;
 
@@ -253,12 +256,13 @@ begin
         end case;
     end process;
 
-    -- Read side not implemented yet
+    -- AXI4-Lite read response outputs
     process(all) is
-        S_AXI_ARREADY <= '1' when read_fsm_state_reg = S_ARADDR else '0';
     begin
-        
-
+        S_AXI_ARREADY <= '1' when read_fsm_state_reg = S_ARADDR else '0';
+        S_AXI_RVALID <= '1' when (read_fsm_state_reg = S_READ_OK or read_fsm_state_reg = S_READ_ERR) else '0';
+        S_AXI_RRESP <= "10" when read_fsm_state_reg = S_READ_ERR else "00";
+        S_AXI_RDATA <= rdata_reg;
     end process;
 
 
@@ -266,62 +270,84 @@ begin
         variable araddr_offset : std_logic_vector(7 downto 0);
         variable reg_idx : integer range 0 to 3;
     begin
+        read_fsm_state_next <= read_fsm_state_reg;
+        araddr_next <= araddr_reg;
+        rdata_next <= rdata_reg;
 
         case read_fsm_state_reg is
-
             when S_ARADDR =>
                 if (S_AXI_ARVALID = '1') then
                     araddr_next <= S_AXI_ARADDR(C_TX_ADDR_OFFSET_WIDTH-1 downto 0);
-                    read_fsm_state_next <= S_READ_DATA;
+                    read_fsm_state_next <= S_READ_REG;
                 end if;
 
-            when S_READ_DATA =>
-                    araddr_offset := araddr_reg(7 downto 4) & "0000";
-                    reg_idx := to_integer(unsigned(awaddr_reg(3 downto 2)));
+            when S_READ_REG =>
+                read_fsm_state_next <= S_READ_OK;
+                araddr_offset := araddr_reg(7 downto 4) & "0000";
+                reg_idx := to_integer(unsigned(araddr_reg(3 downto 2)));
+
+                if (araddr_reg(1 downto 0) /= "00") then
+                    read_fsm_state_next <= S_READ_ERR;
+                    rdata_next <= (others => '0');
+                else
                     case araddr_offset is
                         when C_CTRL_ADDR_OFFSET =>
                             if (reg_idx <= 2) then
-                                rdata_next <= ctrl_regs_next(reg_idx);
+                                rdata_next <= ctrl_regs(reg_idx);
                             else
-                                write_fsm_state_next <= S_WRITE_ERR;
+                                read_fsm_state_next <= S_READ_ERR;
+                                rdata_next <= (others => '0');
                             end if;
 
                         when C_ENTRY0_ADDR_OFFSET =>
                             if (reg_idx <= 2) then
-                                entry0_regs_next(reg_idx) <= wdata_reg;
+                                rdata_next <= entry0_regs(reg_idx);
                             else
-                                write_fsm_state_next <= S_WRITE_ERR;
+                                read_fsm_state_next <= S_READ_ERR;
+                                rdata_next <= (others => '0');
                             end if;
 
                         when C_ENTRY1_ADDR_OFFSET =>
                             if (reg_idx <= 2) then
-                                entry1_regs_next(reg_idx) <= wdata_reg;
+                                rdata_next <= entry1_regs(reg_idx);
                             else
-                                write_fsm_state_next <= S_WRITE_ERR;
+                                read_fsm_state_next <= S_READ_ERR;
+                                rdata_next <= (others => '0');
                             end if;
 
                         when C_ENTRY2_ADDR_OFFSET =>
                             if (reg_idx <= 2) then
-                                entry2_regs_next(reg_idx) <= wdata_reg;
+                                rdata_next <= entry2_regs(reg_idx);
                             else
-                                write_fsm_state_next <= S_WRITE_ERR;
+                                read_fsm_state_next <= S_READ_ERR;
+                                rdata_next <= (others => '0');
                             end if;
 
                         when C_ENTRY3_ADDR_OFFSET =>
                             if (reg_idx <= 2) then
-                                entry3_regs_next(reg_idx) <= wdata_reg;
+                                rdata_next <= entry3_regs(reg_idx);
                             else
-                                write_fsm_state_next <= S_WRITE_ERR;
+                                read_fsm_state_next <= S_READ_ERR;
+                                rdata_next <= (others => '0');
                             end if;
 
                         when others =>
-                            write_fsm_state_next <= S_WRITE_ERR;
-
+                            read_fsm_state_next <= S_READ_ERR;
+                            rdata_next <= (others => '0');
                     end case;
+                end if;
 
+            when S_READ_OK =>
+                if (S_AXI_RREADY = '1') then
+                    read_fsm_state_next <= S_ARADDR;
+                end if;
 
+            when S_READ_ERR =>
+                if (S_AXI_RREADY = '1') then
+                    read_fsm_state_next <= S_ARADDR;
+                end if;  
         end case;
-
     end process;
 
+    -- 
 end architecture;
