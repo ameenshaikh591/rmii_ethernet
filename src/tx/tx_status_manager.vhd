@@ -30,7 +30,6 @@ use ieee.numeric_std.all;
 -- PAYLOAD_LENGTH_REG : x"48" : R/W;
 
 
-
 entity tx_status_manager is
     generic (
         C_S_AXI_ADDR_WIDTH : integer := 32;
@@ -68,13 +67,25 @@ entity tx_status_manager is
         S_AXI_RDATA  : out std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);
         S_AXI_RRESP  : out std_logic_vector(1 downto 0);
         S_AXI_RVALID : out std_logic;
-        S_AXI_RREADY : in  std_logic
+        S_AXI_RREADY : in  std_logic;
+
+        i_frame_tx_complete : in std_logic;
+
+        o_sched_frame_req_valid : out std_logic;
+        i_sched_frame_req_ready : in std_logic;
+        o_sched_frame_dest_mac : out std_logic_vector(47 downto 0);
+        
+        o_entry_read_req_valid : out std_logic;
+        i_entry_read_req_ready : in std_logic;
+        o_entry_addr : out std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0);
+        o_entry_length : out std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0)            
     );
 end entity;
 
 architecture rtl of tx_status_manager is
 
     constant C_TX_ADDR_OFFSET_WIDTH : integer := 8;
+    constant C_PAYLOAD_ENTRY_SIZE : integer := 2048;
 
     constant C_CTRL_ADDR_OFFSET : std_logic_vector(7 downto 0) := x"00";
     constant C_ENTRY0_ADDR_OFFSET : std_logic_vector(7 downto 0) := x"10";
@@ -82,10 +93,20 @@ architecture rtl of tx_status_manager is
     constant C_ENTRY2_ADDR_OFFSET : std_logic_vector(7 downto 0) := x"30";
     constant C_ENTRY3_ADDR_OFFSET : std_logic_vector(7 downto 0) := x"40";
 
+    constant C_BASE_ADDR_IDX : integer := 0;
+    constant C_TAIL_PTR_IDX : integer := 1;
+    constant C_HEAD_PTR_IDX : integer := 2;
+
+    constant C_PAYLOAD_LENGTH_IDX : integer := 2;
 
     type T_AXI_LITE_WRITE_FSM_STATE is (S_AWADDR, S_WDATA, S_UPDATE_REG, S_WRITE_OK, S_WRITE_ERR); 
     type T_AXI_LITE_READ_FSM_STATE is (S_ARADDR, S_READ_REG, S_READ_OK, S_READ_ERR);
 
+    type T_SCHED_ENTRY_FSM_STATE is (S_IDLE, S_RESERVE_FIFO, S_NOTIFY_AXI_READER);
+
+    -- Payload entries base address register : index 0
+    -- Tail pointer register : index 1
+    -- Head pointer register : index 2
     type T_CTRL_REGS is array (0 to 2) of std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);
     type T_ENTRY_REGS is array (0 to 2) of std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);
 
@@ -101,7 +122,6 @@ architecture rtl of tx_status_manager is
     signal read_fsm_state_reg : T_AXI_LITE_READ_FSM_STATE;
     signal read_fsm_state_next : T_AXI_LITE_READ_FSM_STATE;
 
-    
     signal araddr_reg : std_logic_vector(C_TX_ADDR_OFFSET_WIDTH-1 downto 0);
     signal araddr_next : std_logic_vector(C_TX_ADDR_OFFSET_WIDTH-1 downto 0);
 
@@ -123,6 +143,12 @@ architecture rtl of tx_status_manager is
 
     signal entry3_regs      : T_ENTRY_REGS;
     signal entry3_regs_next : T_ENTRY_REGS;
+
+    signal sched_entry_fsm_state_reg : T_SCHED_ENTRY_FSM_STATE;
+    signal sched_entry_fsm_state_next : T_SCHED_ENTRY_FSM_STATE;
+
+    signal schedule_ptr_reg : unsigned(1 downto 0);
+    signal schedule_ptr_next : unsigned(1 downto 0);
 begin
 
     -- Clocked process
@@ -132,11 +158,16 @@ begin
             if (axi_aresetn = '0') then
                 write_fsm_state_reg <= S_AWADDR;
                 read_fsm_state_reg <= S_ARADDR;
+                sched_entry_fsm_state_reg <= sched_entry_fsm_state_next;
+
                 ctrl_regs(1) <= (others => '0');
                 ctrl_regs(2) <= (others => '0');
+
+                schedule_ptr_reg <= (others => '0');
             else
                 write_fsm_state_reg <= write_fsm_state_next;
                 read_fsm_state_reg <= read_fsm_state_next;
+                sched_entry_fsm_state_reg <= sched_entry_fsm_state_next;
 
                 awaddr_reg <= awaddr_next;
                 wdata_reg  <= wdata_next;
@@ -149,6 +180,8 @@ begin
                 entry1_regs <= entry1_regs_next;
                 entry2_regs <= entry2_regs_next;
                 entry3_regs <= entry3_regs_next;
+
+                schedule_ptr_reg <= schedule_ptr_next;
             end if;
         end if;
     end process;
@@ -287,6 +320,7 @@ begin
                 reg_idx := to_integer(unsigned(araddr_reg(3 downto 2)));
 
                 if (araddr_reg(1 downto 0) /= "00") then
+                    -- If unaligned address, error
                     read_fsm_state_next <= S_READ_ERR;
                     rdata_next <= (others => '0');
                 else
@@ -349,5 +383,63 @@ begin
         end case;
     end process;
 
-    -- 
+    -- Update head process
+    process(all) is
+    begin
+        if (i_frame_tx_complete = '1') then
+            ctrl_regs_next(C_HEAD_PTR_IDX) <= std_logic_vector(unsigned(ctrl_regs(C_HEAD_PTR_IDX)) + 1);
+        else
+            ctrl_regs_next(C_HEAD_PTR_IDX) <= ctrl_regs(C_HEAD_PTR_IDX);
+        end if; 
+    end process;
+
+    process(all) is
+    begin
+        o_sched_frame_req_valid <= '1' when sched_entry_fsm_state_reg = S_RESERVE_FIFO else '0';
+        o_entry_read_req_valid <= '1' when sched_entry_fsm_state_reg = S_NOTIFY_AXI_READER else '0';
+    end process;
+
+    process(all) is
+        constant ENTRY_0 : unsigned(1 downto 0) := "00";
+        constant ENTRY_1 : unsigned(1 downto 0) := "01";
+        constant ENTRY_2 : unsigned(1 downto 0) := "10";
+        constant ENTRY_3 : unsigned(1 downto 0) := "11";
+    begin
+        sched_entry_fsm_state_next <= sched_entry_fsm_state_reg;
+
+        case S_IDLE =>
+            if (schedule_ptr_reg /= unsigned(ctrl_regs(C_TAIL_PTR_IDX))) then
+                sched_entry_fsm_state_next <= S_RESERVE_FIFO;
+            end if;
+
+        case S_RESERVE_FIFO => 
+            if (i_sched_frame_req_ready = '1') then
+                -- FIFO Manager has reserved a FIFO for this frame
+                sched_entry_fsm_state_next <= S_NOTIFY_AXI_READER;
+                o_sched_frame_dest_mac <=
+
+            end if;
+
+        case S_NOTIFY_AXI_READER =>
+            o_entry_addr <= std_logic_vector(unsigned(ctrl_regs(C_BASE_ADDR_IDX)) + (schedule_ptr_reg * C_PAYLOAD_ENTRY_SIZE)); 
+
+            case schedule_ptr_reg is
+                when ENTRY_0 =>
+                    o_entry_length <= entry0_regs(C_PAYLOAD_LENGTH_IDX);
+                
+                when ENTRY_1 =>
+                    o_entry_length <= entry1_regs(C_PAYLOAD_LENGTH_IDX);
+
+                when ENTRY_2 =>
+                    o_entry_length <= entry2_regs(C_PAYLOAD_LENGTH_IDX);
+
+                when ENTRY_3 =>
+                    o_entry_length <= entry3_regs(C_PAYLOAD_LENGTH_IDX);
+            end case;
+
+            if (i_entry_read_req_ready = '1') then
+                sched_entry_fsm_state_next <= S_IDLE;
+                schedule_ptr_next <= schedule_ptr_reg + 1;
+            end if;
+    end process;
 end architecture;
