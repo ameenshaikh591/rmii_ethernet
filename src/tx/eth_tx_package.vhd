@@ -3,6 +3,8 @@ package eth_tx_package is
     constant C_AXI_DATA_WIDTH : integer := 32;
 
     constant C_FIFO_ENTRY_WIDTH : integer := 35;
+
+    constant C_FIFO_ENTRY_LAST_BIT : integer := 34;
 end package;
 
 package body of eth_tx_package is
