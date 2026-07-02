@@ -8,5 +8,5 @@ package eth_tx_package is
     constant C_MAC_ADDR_WIDTH : integer := 48;
 end package;
 
-package body of eth_tx_package is
+package body eth_tx_package is
 end package body;

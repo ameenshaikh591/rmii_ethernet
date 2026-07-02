@@ -113,7 +113,7 @@ begin
         M_AXI_ARVALID <= '1' when axi_reader_fsm_reg = S_AR_CHANNEL else '0';
         M_AXI_RREADY  <= '1' when (axi_reader_fsm_reg = S_RDATA and i_buf_wr_ready = '1') else '0';
 
-        o_buf_wr_valid <= '1' when (axi_reader_fsm_reg = S_RDATA and M_AXI_RVALID = '1') else '0';
+        o_buf_wr_valid <= '1' when (axi_reader_fsm_reg = S_RDATA and M_AXI_RVALID = '1' and i_buf_wr_ready = '1') else '0';
 
         o_read_complete <= '1' when axi_reader_fsm_reg = S_TRANS_COMPLETE else '0';
         o_read_error    <= '1' when (axi_reader_fsm_reg = S_TRANS_COMPLETE and read_error_reg = '1') else '0';
@@ -207,7 +207,11 @@ begin
                     end if;
 
                     if (M_AXI_RLAST = '1') then
-                        axi_reader_fsm_next <= S_TRANS_COMPLETE;
+                        if (remaining_beats_reg = 1) then
+                            axi_reader_fsm_next <= S_TRANS_COMPLETE;
+                        else
+                            axi_reader_fsm_next <= S_AR_CHANNEL;
+                        end if;
                     end if;
                 end if;
 

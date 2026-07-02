@@ -86,6 +86,7 @@ architecture rtl of tx_status_manager is
 
     constant C_TX_ADDR_OFFSET_WIDTH : integer := 8;
     constant C_PAYLOAD_ENTRY_SIZE : integer := 2048;
+    constant C_PAYLOAD_ENTRY_SHIFT : integer := 11;
 
     constant C_CTRL_ADDR_OFFSET : std_logic_vector(7 downto 0) := x"00";
     constant C_ENTRY0_ADDR_OFFSET : std_logic_vector(7 downto 0) := x"10";
@@ -106,8 +107,7 @@ architecture rtl of tx_status_manager is
 
     -- Payload entries base address register : index 0
     -- Tail pointer register : index 1
-    -- Head pointer register : index 2
-    type T_CTRL_REGS is array (0 to 2) of std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);
+    type T_CTRL_REGS is array (0 to 1) of std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);
     type T_ENTRY_REGS is array (0 to 2) of std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);
 
     signal write_fsm_state_reg  : T_AXI_LITE_WRITE_FSM_STATE;
@@ -147,6 +147,9 @@ architecture rtl of tx_status_manager is
     signal sched_entry_fsm_state_reg : T_SCHED_ENTRY_FSM_STATE;
     signal sched_entry_fsm_state_next : T_SCHED_ENTRY_FSM_STATE;
 
+    signal head_ptr_reg : unsigned(1 downto 0);
+    signal head_ptr_next : unsigned(1 downto 0);
+
     signal schedule_ptr_reg : unsigned(1 downto 0);
     signal schedule_ptr_next : unsigned(1 downto 0);
 begin
@@ -158,11 +161,12 @@ begin
             if (axi_aresetn = '0') then
                 write_fsm_state_reg <= S_AWADDR;
                 read_fsm_state_reg <= S_ARADDR;
-                sched_entry_fsm_state_reg <= sched_entry_fsm_state_next;
+                sched_entry_fsm_state_reg <= S_IDLE;
 
+                ctrl_regs(0) <= (others => '0');
                 ctrl_regs(1) <= (others => '0');
-                ctrl_regs(2) <= (others => '0');
 
+                head_ptr_reg <= (others => '0');
                 schedule_ptr_reg <= (others => '0');
             else
                 write_fsm_state_reg <= write_fsm_state_next;
@@ -181,6 +185,7 @@ begin
                 entry2_regs <= entry2_regs_next;
                 entry3_regs <= entry3_regs_next;
 
+                head_ptr_reg <= head_ptr_next;
                 schedule_ptr_reg <= schedule_ptr_next;
             end if;
         end if;
@@ -326,8 +331,16 @@ begin
                 else
                     case araddr_offset is
                         when C_CTRL_ADDR_OFFSET =>
-                            if (reg_idx <= 2) then
-                                rdata_next <= ctrl_regs(reg_idx);
+                            if (reg_idx = C_BASE_ADDR_IDX) then
+                                rdata_next <= ctrl_regs(C_BASE_ADDR_IDX);
+
+                            elsif (reg_idx = C_TAIL_PTR_IDX) then
+                                rdata_next <= ctrl_regs(C_TAIL_PTR_IDX);
+
+                            elsif (reg_idx = C_HEAD_PTR_IDX) then
+                                rdata_next <= (others => '0');
+                                rdata_next(1 downto 0) <= std_logic_vector(head_ptr_reg);
+
                             else
                                 read_fsm_state_next <= S_READ_ERR;
                                 rdata_next <= (others => '0');
@@ -386,10 +399,10 @@ begin
     -- Update head process
     process(all) is
     begin
+        head_ptr_next <= head_ptr_reg;
+
         if (i_frame_tx_complete = '1') then
-            ctrl_regs_next(C_HEAD_PTR_IDX) <= std_logic_vector(unsigned(ctrl_regs(C_HEAD_PTR_IDX)) + 1);
-        else
-            ctrl_regs_next(C_HEAD_PTR_IDX) <= ctrl_regs(C_HEAD_PTR_IDX);
+            head_ptr_next <= head_ptr_reg + 1;
         end if; 
     end process;
 
@@ -404,42 +417,56 @@ begin
         constant ENTRY_1 : unsigned(1 downto 0) := "01";
         constant ENTRY_2 : unsigned(1 downto 0) := "10";
         constant ENTRY_3 : unsigned(1 downto 0) := "11";
+        variable payload_addr : unsigned(C_S_AXI_ADDR_WIDTH-1 downto 0);
     begin
         sched_entry_fsm_state_next <= sched_entry_fsm_state_reg;
+        schedule_ptr_next <= schedule_ptr_reg;
 
-        case S_IDLE =>
-            if (schedule_ptr_reg /= unsigned(ctrl_regs(C_TAIL_PTR_IDX))) then
-                sched_entry_fsm_state_next <= S_RESERVE_FIFO;
-            end if;
+        o_sched_frame_dest_mac <= (others => '0');
+        o_entry_addr <= (others => '0');
+        o_entry_length <= (others => '0');
 
-        case S_RESERVE_FIFO => 
-            if (i_sched_frame_req_ready = '1') then
-                -- FIFO Manager has reserved a FIFO for this frame
-                sched_entry_fsm_state_next <= S_NOTIFY_AXI_READER;
-                o_sched_frame_dest_mac <=
+        payload_addr :=
+            resize(unsigned(ctrl_regs(C_BASE_ADDR_IDX)), C_S_AXI_ADDR_WIDTH) +
+            shift_left(resize(schedule_ptr_reg, C_S_AXI_ADDR_WIDTH), C_PAYLOAD_ENTRY_SHIFT);
 
-            end if;
+        o_entry_addr <= std_logic_vector(payload_addr);
 
-        case S_NOTIFY_AXI_READER =>
-            o_entry_addr <= std_logic_vector(unsigned(ctrl_regs(C_BASE_ADDR_IDX)) + (schedule_ptr_reg * C_PAYLOAD_ENTRY_SIZE)); 
+        case schedule_ptr_reg is
+            when ENTRY_0 =>
+                o_sched_frame_dest_mac <= entry0_regs(1)(15 downto 0) & entry0_regs(0);
+                o_entry_length <= entry0_regs(C_PAYLOAD_LENGTH_IDX);
 
-            case schedule_ptr_reg is
-                when ENTRY_0 =>
-                    o_entry_length <= entry0_regs(C_PAYLOAD_LENGTH_IDX);
-                
-                when ENTRY_1 =>
-                    o_entry_length <= entry1_regs(C_PAYLOAD_LENGTH_IDX);
+            when ENTRY_1 =>
+                o_sched_frame_dest_mac <= entry1_regs(1)(15 downto 0) & entry1_regs(0);
+                o_entry_length <= entry1_regs(C_PAYLOAD_LENGTH_IDX);
 
-                when ENTRY_2 =>
-                    o_entry_length <= entry2_regs(C_PAYLOAD_LENGTH_IDX);
+            when ENTRY_2 =>
+                o_sched_frame_dest_mac <= entry2_regs(1)(15 downto 0) & entry2_regs(0);
+                o_entry_length <= entry2_regs(C_PAYLOAD_LENGTH_IDX);
 
-                when ENTRY_3 =>
-                    o_entry_length <= entry3_regs(C_PAYLOAD_LENGTH_IDX);
-            end case;
+            when ENTRY_3 =>
+                o_sched_frame_dest_mac <= entry3_regs(1)(15 downto 0) & entry3_regs(0);
+                o_entry_length <= entry3_regs(C_PAYLOAD_LENGTH_IDX);
+        end case;
 
-            if (i_entry_read_req_ready = '1') then
-                sched_entry_fsm_state_next <= S_IDLE;
-                schedule_ptr_next <= schedule_ptr_reg + 1;
-            end if;
+        case sched_entry_fsm_state_reg is
+            when S_IDLE =>
+                if (schedule_ptr_reg /= unsigned(ctrl_regs(C_TAIL_PTR_IDX)(1 downto 0))) then
+                    sched_entry_fsm_state_next <= S_RESERVE_FIFO;
+                end if;
+
+            when S_RESERVE_FIFO =>
+                if (i_sched_frame_req_ready = '1') then
+                    -- FIFO Manager has reserved a FIFO for this frame.
+                    sched_entry_fsm_state_next <= S_NOTIFY_AXI_READER;
+                end if;
+
+            when S_NOTIFY_AXI_READER =>
+                if (i_entry_read_req_ready = '1') then
+                    sched_entry_fsm_state_next <= S_IDLE;
+                    schedule_ptr_next <= schedule_ptr_reg + 1;
+                end if;
+        end case;
     end process;
 end architecture;
