@@ -3,7 +3,7 @@
 module memory_tester #(
     parameter int AXI_ADDR_WIDTH = 32,
     parameter int AXI_DATA_WIDTH = 32,
-    parameter int PAYLOAD_BYTES = 1500,
+    parameter int PAYLOAD_SLOT_BYTES = 2048,
     parameter int NUM_PAYLOADS = 4,
     parameter int TEST_PAYLOAD_BYTES = 50
 ) (
@@ -23,40 +23,41 @@ module memory_tester #(
     output logic                         s_axi_rvalid,
     input  logic                         s_axi_rready
 );
-    localparam int TOTAL_BYTES = PAYLOAD_BYTES * NUM_PAYLOADS;
+    localparam int WORD_BYTES = AXI_DATA_WIDTH / 8;
+    localparam int PAYLOAD_SLOT_WORDS = PAYLOAD_SLOT_BYTES / WORD_BYTES;
+    localparam int TEST_PAYLOAD_WORDS = (TEST_PAYLOAD_BYTES + WORD_BYTES - 1) / WORD_BYTES;
+    localparam int TOTAL_WORDS = PAYLOAD_SLOT_WORDS * NUM_PAYLOADS;
 
-    logic [7:0] mem [0:TOTAL_BYTES-1];
+    logic [AXI_DATA_WIDTH-1:0] mem [0:TOTAL_WORDS-1];
 
     logic active;
     logic [AXI_ADDR_WIDTH-1:0] read_addr;
     logic [7:0] beats_remaining;
 
-    function automatic logic [7:0] payload_byte(input int payload_idx, input int byte_idx);
-        payload_byte = logic'(8'(payload_idx * 8'h40 + byte_idx));
+    function automatic logic [AXI_DATA_WIDTH-1:0] payload_word(input int payload_idx, input int word_idx);
+        payload_word = AXI_DATA_WIDTH'(word_idx + (100 * payload_idx));
     endfunction
 
     function automatic logic [AXI_DATA_WIDTH-1:0] read_word(input logic [AXI_ADDR_WIDTH-1:0] addr);
-        int unsigned base;
+        int unsigned word_idx;
         begin
-            base = int'(addr);
+            word_idx = int'(addr[AXI_ADDR_WIDTH-1:2]);
             read_word = '0;
 
-            for (int byte_idx = 0; byte_idx < (AXI_DATA_WIDTH / 8); byte_idx++) begin
-                if ((base + byte_idx) < TOTAL_BYTES) begin
-                    read_word[byte_idx * 8 +: 8] = mem[base + byte_idx];
-                end
+            if (word_idx < TOTAL_WORDS) begin
+                read_word = mem[word_idx];
             end
         end
     endfunction
 
     initial begin
-        for (int i = 0; i < TOTAL_BYTES; i++) begin
-            mem[i] = 8'h00;
+        for (int i = 0; i < TOTAL_WORDS; i++) begin
+            mem[i] = '0;
         end
 
         for (int payload_idx = 0; payload_idx < NUM_PAYLOADS; payload_idx++) begin
-            for (int byte_idx = 0; byte_idx < TEST_PAYLOAD_BYTES; byte_idx++) begin
-                mem[(payload_idx * PAYLOAD_BYTES) + byte_idx] = payload_byte(payload_idx, byte_idx);
+            for (int word_idx = 0; word_idx < TEST_PAYLOAD_WORDS; word_idx++) begin
+                mem[(payload_idx * PAYLOAD_SLOT_WORDS) + word_idx] = payload_word(payload_idx, word_idx);
             end
         end
     end

@@ -197,7 +197,9 @@ module tb_eth_tx;
     endfunction
 
     function automatic byte payload_byte(input int payload_idx, input int byte_idx);
-        return byte'(payload_idx * 8'h40 + byte_idx);
+        logic [31:0] word;
+        word = 32'(byte_idx / 4 + (100 * payload_idx));
+        return byte'(word[(byte_idx % 4) * 8 +: 8]);
     endfunction
 
     task automatic check_byte(input int index, input byte expected);
