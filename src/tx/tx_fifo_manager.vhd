@@ -51,7 +51,7 @@ end entity;
 
 architecture rtl of tx_fifo_manager is
 
-    constant C_TX_FIFO_DEPTH : integer := 377;
+    constant C_TX_FIFO_DEPTH : integer := 512;
 
     -- XPM programmable-full is used as the FIFO Manager's "almost full".
     -- Threshold 101 means prog_full asserts once used entries are >= 101,
@@ -257,7 +257,7 @@ begin
     begin
         o_mac_fifo_dout <= fifo_dout;
         o_mac_fifo_empty <= fifo_empty or fifo_rd_rst_busy;
-        o_mac_fifo_data_valid <= fifo_data_valid and not fifo_rd_rst_busy;
+        o_mac_fifo_data_valid <= not fifo_empty and not fifo_rd_rst_busy;
 
         o_frame_tx_start <= frame_tx_start_reg;
         o_frame_tx_finish_ack <= frame_tx_finish_ack_reg;

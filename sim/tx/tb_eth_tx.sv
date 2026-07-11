@@ -121,7 +121,13 @@ module tb_eth_tx;
     );
 
     task automatic axil_write(input logic [31:0] addr, input logic [31:0] data);
+
+        // Synchronize with AXI clock
+        @(posedge s_axi_aclk);
+
         fork
+            // AW Channel thread
+            // Provide write address ; wait for valid/ready handshake
             begin
                 s_axi_awaddr <= addr;
                 s_axi_awprot <= 3'b000;
@@ -132,6 +138,9 @@ module tb_eth_tx;
                 s_axi_awvalid <= 1'b0;
                 s_axi_awaddr <= '0;
             end
+
+            // W Channel thread
+            // Provide write data ; wait for valid/ready handshake
             begin
                 s_axi_wdata <= data;
                 s_axi_wstrb <= 4'hF;
@@ -145,41 +154,44 @@ module tb_eth_tx;
             end
         join
 
+        // B Channel
+        // Assert 'bready' ; wait for valid/ready handshake
         s_axi_bready <= 1'b1;
         do begin
             @(posedge s_axi_aclk);
         end while (!s_axi_bvalid);
 
+        // FATAL: write response error
         assert (s_axi_bresp == 2'b00)
             else $fatal(1, "AXI-Lite write to 0x%08x failed with BRESP=%b", addr, s_axi_bresp);
 
-        @(posedge s_axi_aclk);
         s_axi_bready <= 1'b0;
+        @(posedge s_axi_aclk);
     endtask
 
     task automatic rmii_collect_frame(output byte frame[$]);
         byte rx_byte;
+
+        // Clear the existing bytes in the 'frame' queue
         frame.delete();
 
+        // Wait until 'o_tx_en' is asserted
         do begin
             @(posedge i_ref_clk);
-            #1ps;
         end while (!o_tx_en);
 
         while (o_tx_en) begin
             rx_byte = '0;
-            for (int phase = 0; phase < 4; phase++) begin
-                if (phase != 0) begin
-                    @(posedge i_ref_clk);
-                    #1ps;
-                end
+            for (int dibit = 0; dibit < 4; dibit++) begin
                 assert (o_tx_en)
                     else $fatal(1, "TX_EN deasserted in the middle of a byte");
-                rx_byte[phase * 2 +: 2] = o_txd;
+                rx_byte[dibit * 2 +: 2] = o_txd;
+                if (dibit != 3) begin
+                    @(posedge i_ref_clk);
+                end
             end
             frame.push_back(rx_byte);
             @(posedge i_ref_clk);
-            #1ps;
         end
     endtask
 

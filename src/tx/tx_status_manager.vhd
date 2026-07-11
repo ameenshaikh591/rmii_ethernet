@@ -448,6 +448,10 @@ begin
             when ENTRY_3 =>
                 o_sched_frame_dest_mac <= entry3_regs(1)(15 downto 0) & entry3_regs(0);
                 o_entry_length <= entry3_regs(C_PAYLOAD_LENGTH_IDX);
+
+            when others =>
+                o_sched_frame_dest_mac <= entry0_regs(1)(15 downto 0) & entry0_regs(0);
+                o_entry_length <= entry2_regs(C_PAYLOAD_LENGTH_IDX);
         end case;
 
         case sched_entry_fsm_state_reg is
