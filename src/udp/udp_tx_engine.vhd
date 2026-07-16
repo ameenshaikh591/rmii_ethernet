@@ -155,12 +155,9 @@ begin
     o_tx_release_valid <= release_reg;
 
     o_read_req_valid <= '1' when state = T_META_REQ or state = T_PAYLOAD_REQ else '0';
-    o_read_addr <= descriptor_addr when state = T_META_REQ else
-                   std_logic_vector(unsigned(descriptor_addr) + C_DMA_METADATA_BYTES);
-    o_read_length <= x"0010" when state = T_META_REQ else
-                     std_logic_vector(to_unsigned(payload_length, 16));
-    o_read_data_ready <= '1' when state = T_META_RECV else
-                         i_frame_data_ready when state = T_PAYLOAD_STREAM else '0';
+    o_read_addr <= descriptor_addr when state = T_META_REQ else std_logic_vector(unsigned(descriptor_addr) + C_DMA_METADATA_BYTES);
+    o_read_length <= x"0010" when state = T_META_REQ else std_logic_vector(to_unsigned(payload_length, 16));
+    o_read_data_ready <= '1' when state = T_META_RECV else i_frame_data_ready when state = T_PAYLOAD_STREAM else '0';
 
     o_resolve_req_valid <= '1' when state = T_RESOLVE_REQ else '0';
     o_resolve_ip <= next_hop_ip;
@@ -169,8 +166,7 @@ begin
     o_frame_dest_mac <= resolved_mac;
     o_frame_ethertype <= C_ETHERTYPE_IPV4;
     o_frame_payload_length <= frame_length_value(payload_length);
-    o_frame_data_valid <= '1' when state = T_HEADER_STREAM else
-                          i_read_data_valid when state = T_PAYLOAD_STREAM else '0';
+    o_frame_data_valid <= '1' when state = T_HEADER_STREAM else i_read_data_valid when state = T_PAYLOAD_STREAM else '0';
     o_frame_data <= make_header_word(header_word_index, payload_length, ip_identification,
                                      ip_checksum, i_local_ipv4_addr, destination_ip,
                                      source_port, destination_port)
@@ -207,9 +203,10 @@ begin
                 case state is
                     when T_IDLE =>
                         if i_tx_head_ptr /= i_tx_tail_ptr then
-                            latched_head <= i_tx_head_ptr;
+                            latched_head    <= i_tx_head_ptr;
                             descriptor_addr <= tx_entry_address(i_dma_base_addr, i_tx_head_ptr(1 downto 0));
-                            metadata_index <= 0;
+                            metadata_index  <= 0;
+
                             state <= T_META_REQ;
                         end if;
 

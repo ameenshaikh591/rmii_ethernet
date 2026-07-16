@@ -68,15 +68,18 @@ architecture rtl of udp_status_manager is
     signal rdata_reg   : std_logic_vector(31 downto 0);
     signal rresp_reg   : std_logic_vector(1 downto 0);
 
-    signal dma_base_reg : std_logic_vector(31 downto 0);
-    signal rx0_config_reg : std_logic_vector(31 downto 0);
-    signal rx1_config_reg : std_logic_vector(31 downto 0);
-    signal local_ip_reg : std_logic_vector(31 downto 0);
-    signal subnet_mask_reg : std_logic_vector(31 downto 0);
-    signal gateway_reg : std_logic_vector(31 downto 0);
-    signal rx0_head_reg, rx0_tail_reg : t_queue_ptr;
-    signal rx1_head_reg, rx1_tail_reg : t_queue_ptr;
-    signal tx_head_reg, tx_tail_reg : t_queue_ptr;
+    signal dma_base_reg     : std_logic_vector(31 downto 0);
+    signal rx0_config_reg   : std_logic_vector(31 downto 0);
+    signal rx1_config_reg   : std_logic_vector(31 downto 0);
+
+    signal local_ip_reg     : std_logic_vector(31 downto 0);
+    signal subnet_mask_reg  : std_logic_vector(31 downto 0);
+    signal gateway_reg      : std_logic_vector(31 downto 0);
+
+    signal rx0_head_reg, rx0_tail_reg   : t_queue_ptr;
+    signal rx1_head_reg, rx1_tail_reg   : t_queue_ptr;
+    signal tx_head_reg, tx_tail_reg     : t_queue_ptr;
+
     signal config_changed_reg : std_logic;
 
     function apply_wstrb(
@@ -121,21 +124,18 @@ begin
     o_tx_tail_ptr  <= tx_tail_reg;
     o_network_config_changed <= config_changed_reg;
 
-    process(axi_aclk)
+    -- FSM to handle AXI-Lite Writes to registers
+    write_register_process : process(axi_aclk)
         variable merged : std_logic_vector(31 downto 0);
-        variable read_offset : natural range 0 to 255;
         variable ptr_value : t_queue_ptr;
     begin
         if rising_edge(axi_aclk) then
             if axi_aresetn = '0' then
                 write_state <= W_ADDR;
-                read_state <= R_ADDR;
                 write_addr <= (others => '0');
                 write_data <= (others => '0');
                 write_strb <= (others => '0');
                 bresp_reg <= C_AXI_OKAY;
-                rdata_reg <= (others => '0');
-                rresp_reg <= C_AXI_OKAY;
 
                 dma_base_reg <= (others => '0');
                 rx0_config_reg <= (others => '0');
@@ -144,25 +144,11 @@ begin
                 subnet_mask_reg <= (others => '0');
                 gateway_reg <= (others => '0');
                 rx0_head_reg <= (others => '0');
-                rx0_tail_reg <= (others => '0');
                 rx1_head_reg <= (others => '0');
-                rx1_tail_reg <= (others => '0');
-                tx_head_reg <= (others => '0');
                 tx_tail_reg <= (others => '0');
                 config_changed_reg <= '0';
             else
                 config_changed_reg <= '0';
-
-                if i_rx_commit_valid = '1' then
-                    if i_rx_commit_socket = '0' then
-                        rx0_tail_reg <= rx_ptr_advance(rx0_tail_reg);
-                    else
-                        rx1_tail_reg <= rx_ptr_advance(rx1_tail_reg);
-                    end if;
-                end if;
-                if i_tx_release_valid = '1' then
-                    tx_head_reg <= tx_ptr_advance(tx_head_reg);
-                end if;
 
                 case write_state is
                     when W_ADDR =>
@@ -257,7 +243,44 @@ begin
                             write_state <= W_ADDR;
                         end if;
                 end case;
+            end if;
+        end if;
+    end process;
 
+    -- Hardware completion events advance the hardware-owned queue pointers.
+    commit_release_process : process(axi_aclk)
+    begin
+        if rising_edge(axi_aclk) then
+            if axi_aresetn = '0' then
+                rx0_tail_reg <= (others => '0');
+                rx1_tail_reg <= (others => '0');
+                tx_head_reg <= (others => '0');
+            else
+                if i_rx_commit_valid = '1' then
+                    if i_rx_commit_socket = '0' then
+                        rx0_tail_reg <= rx_ptr_advance(rx0_tail_reg);
+                    else
+                        rx1_tail_reg <= rx_ptr_advance(rx1_tail_reg);
+                    end if;
+                end if;
+
+                if i_tx_release_valid = '1' then
+                    tx_head_reg <= tx_ptr_advance(tx_head_reg);
+                end if;
+            end if;
+        end if;
+    end process;
+
+    -- FSM to handle AXI-Lite Reads to registers
+    read_process : process(axi_aclk)
+        variable read_offset : natural range 0 to 255;
+    begin
+        if rising_edge(axi_aclk) then
+            if axi_aresetn = '0' then
+                read_state <= R_ADDR;
+                rdata_reg <= (others => '0');
+                rresp_reg <= C_AXI_OKAY;
+            else
                 case read_state is
                     when R_ADDR =>
                         if S_AXI_ARVALID = '1' then
@@ -268,19 +291,32 @@ begin
                             else
                                 read_offset := to_integer(unsigned(S_AXI_ARADDR(7 downto 0)));
                                 case read_offset is
-                                    when C_REG_DMA_BASE_ADDR => rdata_reg <= dma_base_reg;
-                                    when C_REG_RX0_CONFIG => rdata_reg <= rx0_config_reg;
-                                    when C_REG_RX0_HEAD => rdata_reg(2 downto 0) <= rx0_head_reg;
-                                    when C_REG_RX0_TAIL => rdata_reg(2 downto 0) <= rx0_tail_reg;
-                                    when C_REG_RX1_CONFIG => rdata_reg <= rx1_config_reg;
-                                    when C_REG_RX1_HEAD => rdata_reg(2 downto 0) <= rx1_head_reg;
-                                    when C_REG_RX1_TAIL => rdata_reg(2 downto 0) <= rx1_tail_reg;
-                                    when C_REG_TX_HEAD => rdata_reg(2 downto 0) <= tx_head_reg;
-                                    when C_REG_TX_TAIL => rdata_reg(2 downto 0) <= tx_tail_reg;
-                                    when C_REG_LOCAL_IPV4 => rdata_reg <= local_ip_reg;
-                                    when C_REG_SUBNET_MASK => rdata_reg <= subnet_mask_reg;
-                                    when C_REG_DEFAULT_GATEWAY => rdata_reg <= gateway_reg;
-                                    when others => rresp_reg <= C_AXI_SLVERR;
+                                    when C_REG_DMA_BASE_ADDR =>
+                                        rdata_reg <= dma_base_reg;
+                                    when C_REG_RX0_CONFIG =>
+                                        rdata_reg <= rx0_config_reg;
+                                    when C_REG_RX0_HEAD =>
+                                        rdata_reg(2 downto 0) <= rx0_head_reg;
+                                    when C_REG_RX0_TAIL =>
+                                        rdata_reg(2 downto 0) <= rx0_tail_reg;
+                                    when C_REG_RX1_CONFIG =>
+                                        rdata_reg <= rx1_config_reg;
+                                    when C_REG_RX1_HEAD =>
+                                        rdata_reg(2 downto 0) <= rx1_head_reg;
+                                    when C_REG_RX1_TAIL =>
+                                        rdata_reg(2 downto 0) <= rx1_tail_reg;
+                                    when C_REG_TX_HEAD =>
+                                        rdata_reg(2 downto 0) <= tx_head_reg;
+                                    when C_REG_TX_TAIL =>
+                                        rdata_reg(2 downto 0) <= tx_tail_reg;
+                                    when C_REG_LOCAL_IPV4 =>
+                                        rdata_reg <= local_ip_reg;
+                                    when C_REG_SUBNET_MASK =>
+                                        rdata_reg <= subnet_mask_reg;
+                                    when C_REG_DEFAULT_GATEWAY =>
+                                        rdata_reg <= gateway_reg;
+                                    when others =>
+                                        rresp_reg <= C_AXI_SLVERR;
                                 end case;
                             end if;
                             read_state <= R_RESP;

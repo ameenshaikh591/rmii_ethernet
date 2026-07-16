@@ -38,8 +38,8 @@ package udp_engine_pkg is
     constant C_REG_SUBNET_MASK      : natural := 16#28#;
     constant C_REG_DEFAULT_GATEWAY  : natural := 16#2C#;
 
-    -- A pointer is {wrap, index[1:0]}.  Bits above bit 2 are always zero in
-    -- software-visible registers.
+    -- A pointer is wrap & index[1:0]
+    -- Bits above bit 2 are always zero in software-visible registers
     subtype t_queue_ptr is std_logic_vector(2 downto 0);
 
     type t_byte_array is array (natural range <>) of std_logic_vector(7 downto 0);
