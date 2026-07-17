@@ -57,10 +57,14 @@ architecture rtl of udp_tx_engine is
         T_FRAME_REQ, T_HEADER_STREAM, T_PAYLOAD_REQ,
         T_PAYLOAD_STREAM, T_RELEASE, T_DROP
     );
+    type t_metadata_word is (
+        M_DESTINATION_IP, M_PORTS, M_PAYLOAD_LENGTH, M_RESERVED
+    );
+
     signal state : t_state;
     signal latched_head : t_queue_ptr;
     signal descriptor_addr : std_logic_vector(31 downto 0);
-    signal metadata_index : natural range 0 to 3;
+    signal current_metadata_word : t_metadata_word;
     signal destination_ip : std_logic_vector(31 downto 0);
     signal source_port, destination_port : std_logic_vector(15 downto 0);
     signal payload_length : natural range 0 to 65535;
@@ -82,16 +86,26 @@ architecture rtl of udp_tx_engine is
     ) return unsigned is
     begin
         case index is
-            when 0 => return unsigned'(x"4500");
-            when 1 => return to_unsigned(total_length, 16);
-            when 2 => return identification;
-            when 3 => return unsigned'(x"4000");
-            when 4 => return unsigned'(x"4011");
-            when 5 => return unsigned'(x"0000");
-            when 6 => return unsigned(source_ip(31 downto 16));
-            when 7 => return unsigned(source_ip(15 downto 0));
-            when 8 => return unsigned(dest_ip(31 downto 16));
-            when others => return unsigned(dest_ip(15 downto 0));
+            when 0 => 
+                return unsigned'(x"4500");
+            when 1 => 
+                return to_unsigned(total_length, 16);
+            when 2 => 
+                return identification;
+            when 3 => 
+                return unsigned'(x"4000");
+            when 4 => 
+                return unsigned'(x"4011");
+            when 5 => 
+                return unsigned'(x"0000");
+            when 6 => 
+                return unsigned(source_ip(31 downto 16));
+            when 7 => 
+                return unsigned(source_ip(15 downto 0));
+            when 8 => 
+                return unsigned(dest_ip(31 downto 16));
+            when others => 
+                return unsigned(dest_ip(15 downto 0));
         end case;
     end function;
 
@@ -139,8 +153,7 @@ architecture rtl of udp_tx_engine is
     begin
         first_octet := to_integer(unsigned(ip(31 downto 24)));
         return ip /= x"00000000" and ip /= x"FFFFFFFF" and
-               first_octet /= 0 and first_octet /= 127 and
-               not (first_octet >= 224 and first_octet <= 239);
+               first_octet /= 0 and first_octet /= 127 and not (first_octet >= 224 and first_octet <= 239);
     end function;
 
     function frame_length_value(app_length : natural) return std_logic_vector is
@@ -187,7 +200,7 @@ begin
                 state <= T_IDLE;
                 latched_head <= (others => '0');
                 descriptor_addr <= (others => '0');
-                metadata_index <= 0;
+                current_metadata_word <= M_DESTINATION_IP;
                 destination_ip <= (others => '0');
                 source_port <= (others => '0');
                 destination_port <= (others => '0');
@@ -205,7 +218,7 @@ begin
                         if i_tx_head_ptr /= i_tx_tail_ptr then
                             latched_head    <= i_tx_head_ptr;
                             descriptor_addr <= tx_entry_address(i_dma_base_addr, i_tx_head_ptr(1 downto 0));
-                            metadata_index  <= 0;
+                            current_metadata_word <= M_DESTINATION_IP;
 
                             state <= T_META_REQ;
                         end if;
@@ -216,27 +229,33 @@ begin
                         end if;
 
                     when T_META_RECV =>
+                        -- Metadata field of the TX entry comprises the first four words (0x0 - 0xF)
+                        -- AXI Reader provides one word, starting with word at 0x0, upon each valid/ready handshake
+                        -- Four valid/ready handshakes (i_read_data_valid/o_read_data_ready) occur to receive the full metadata field
                         if i_read_error = '1' then
                             state <= T_DROP;
                         elsif i_read_data_valid = '1' then
-                            case metadata_index is
-                                when 0 => destination_ip <= i_read_data;
-                                when 1 =>
+                            case current_metadata_word is
+                                when M_DESTINATION_IP =>
+                                    destination_ip <= i_read_data;
+                                when M_PORTS =>
                                     destination_port <= i_read_data(15 downto 0);
                                     source_port <= i_read_data(31 downto 16);
-                                when 2 => payload_length <= to_integer(unsigned(i_read_data(15 downto 0)));
-                                when others => null;
+                                when M_PAYLOAD_LENGTH =>
+                                    payload_length <= to_integer(unsigned(i_read_data(15 downto 0)));
+                                when M_RESERVED =>
+                                    null;
                             end case;
                             if i_read_last = '1' then
-                                if metadata_index = 3 then
+                                if current_metadata_word = M_RESERVED then
                                     state <= T_VALIDATE;
                                 else
                                     state <= T_DROP;
                                 end if;
-                            elsif metadata_index = 3 then
+                            elsif current_metadata_word = M_RESERVED then
                                 state <= T_DROP;
                             else
-                                metadata_index <= metadata_index + 1;
+                                current_metadata_word <= t_metadata_word'succ(current_metadata_word);
                             end if;
                         end if;
 
