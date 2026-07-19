@@ -75,7 +75,6 @@ architecture rtl of udp_tx_engine is
     signal checksum_sum : unsigned(19 downto 0);
     signal checksum_index : natural range 0 to 9;
     signal header_word_index : natural range 0 to 6;
-    signal release_reg : std_logic;
 
     function ip_word(
         index : natural;
@@ -165,7 +164,10 @@ architecture rtl of udp_tx_engine is
         return (15 downto 0 => '0');
     end function;
 begin
-    o_tx_release_valid <= release_reg;
+    -- T_RELEASE and T_DROP are registered FSM states, so this is a clean
+    -- one-cycle synchronous pulse.  The status manager advances TX_HEAD on
+    -- the same edge that returns this engine to T_IDLE.
+    o_tx_release_valid <= '1' when state = T_RELEASE or state = T_DROP else '0';
 
     o_read_req_valid <= '1' when state = T_META_REQ or state = T_PAYLOAD_REQ else '0';
     o_read_addr <= descriptor_addr when state = T_META_REQ else std_logic_vector(unsigned(descriptor_addr) + C_DMA_METADATA_BYTES);
@@ -195,7 +197,6 @@ begin
         variable sum_next : unsigned(19 downto 0);
     begin
         if rising_edge(axi_aclk) then
-            release_reg <= '0';
             if axi_aresetn = '0' then
                 state <= T_IDLE;
                 latched_head <= (others => '0');
@@ -335,18 +336,15 @@ begin
                     when T_PAYLOAD_STREAM =>
                         if i_read_error = '1' then
                             state <= T_DROP;
-                        elsif i_read_data_valid = '1' and i_frame_data_ready = '1' and
-                              i_read_last = '1' then
+                        elsif i_read_data_valid = '1' and i_frame_data_ready = '1' and i_read_last = '1' then
                             state <= T_RELEASE;
                         end if;
 
                     when T_RELEASE =>
-                        release_reg <= '1';
                         ip_identification <= ip_identification + 1;
                         state <= T_IDLE;
 
                     when T_DROP =>
-                        release_reg <= '1';
                         state <= T_IDLE;
                 end case;
             end if;

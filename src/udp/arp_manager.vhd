@@ -133,6 +133,9 @@ begin
         variable hit_mac : std_logic_vector(47 downto 0);
         variable update_index : integer range -1 to 3;
         variable first_invalid : integer range -1 to 3;
+        variable valid_sender : boolean;
+        variable local_request : boolean;
+        variable local_reply : boolean;
         variable learn_sender : boolean;
         variable pending_match : boolean;
     begin
@@ -275,17 +278,24 @@ begin
                         resolve_state <= R_IDLE;
                     end if;
                 elsif i_arp_event_valid = '1' then
+                    valid_sender := i_arp_event_sender_ip /= x"00000000" and
+                                    i_arp_event_sender_mac /= x"000000000000";
+                    -- A requester does not know our MAC yet, so its ARP target
+                    -- MAC is intentionally ignored.  A reply must identify us
+                    -- consistently by both protocol and hardware address.
+                    local_request := i_arp_event_opcode = x"0001" and
+                                     i_arp_event_target_ip = i_local_ipv4_addr;
+                    local_reply := i_arp_event_opcode = x"0002" and
+                                   i_arp_event_target_ip = i_local_ipv4_addr and
+                                   i_arp_event_target_mac = G_LOCAL_MAC;
                     pending_match := resolve_state /= R_IDLE and
                                      i_arp_event_sender_ip = pending_ip and
-                                     i_arp_event_sender_ip /= x"00000000" and
-                                     i_arp_event_sender_mac /= x"000000000000";
-                    learn_sender :=
-                        (i_arp_event_opcode = x"0001" and i_arp_event_target_ip = i_local_ipv4_addr) or
-                        (i_arp_event_opcode = x"0002" and i_arp_event_target_ip = i_local_ipv4_addr) or
-                        pending_match;
+                                     valid_sender and
+                                     (local_request or local_reply);
+                    learn_sender := valid_sender and
+                                    (local_request or local_reply);
 
-                    if learn_sender and i_arp_event_sender_ip /= x"00000000" and
-                       i_arp_event_sender_mac /= x"000000000000" then
+                    if learn_sender then
                         update_index := -1;
                         first_invalid := -1;
                         for index in 0 to 3 loop

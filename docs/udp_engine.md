@@ -11,7 +11,7 @@ The entity has three bus interfaces and direct RMII pins:
 - `M_AXI_WR_*`: independent 32-bit AXI4 write master used only for RX metadata and payloads.
 - `i_ref_clk`, `i_rxd`, `i_rxer`, `i_crs_dv`, `o_txd`, and `o_tx_en`: RMII PHY interface.
 
-Both AXI masters issue aligned, one-beat, 32-bit incrementing transactions. `ARLEN` and `AWLEN` are zero, `ARSIZE` and `AWSIZE` are `010`, and write strobes preserve partial final payload words. Separate read and write masters allow direct connection to separate SmartConnect slave inputs without arbitration inside the endpoint.
+The read master issues aligned 32-bit incrementing bursts, limits each burst to 256 beats, and splits requests at 4-KiB boundaries. A registered two-entry elastic response buffer sustains one read beat per clock without a combinational path from the TX consumer to `M_AXI_RD_RREADY`. The write master uses aligned, one-beat 32-bit transactions; write strobes preserve partial final payload words. Separate read and write masters allow direct connection to separate SmartConnect slave inputs without arbitration inside the endpoint.
 
 The default generics are:
 
@@ -125,12 +125,14 @@ The checked-in MicroBlaze configuration has instruction and data caches disabled
 
 `sim/udp/tb_udp_engine.sv` is a mixed-language integration demonstration. It:
 
-1. Configures the endpoint and queues a five-byte TX descriptor.
+1. Configures the endpoint and queues a maximum-length TX descriptor whose payload crosses a 4-KiB boundary.
 2. Checks the emitted ARP request.
 3. Injects an ARP reply.
-4. Checks the emitted IPv4/UDP frame.
+4. Checks the three legal payload bursts and the emitted IPv4/UDP frame.
 5. Injects a UDP packet and checks RX metadata, payload, and tail publication.
+
+`sim/udp/tb_udp_axi_reader.sv` is a focused reader test. It checks 4-KiB burst splitting, fills both elastic-buffer entries under downstream backpressure, verifies that downstream ready does not propagate combinationally to AXI `RREADY`, and checks ordered draining plus final-word byte qualification.
 
 The DUT uses `xpm_fifo_async`; compile and map the Xilinx `xpm` simulation library before running the testbench.
 
-`sim/udp/synth_check.tcl` performs an out-of-context synthesis for the Basys 3 `xc7a35tcpg236-1`. With Vivado 2025.2, the completed engine synthesized with zero errors and zero critical warnings, using approximately 2,575 slice LUTs, 2,846 slice registers, one RAMB36 (RX FIFO), and two RAMB18s (the TX frame banks). These figures are pre-place-and-route and may move slightly when integrated into the full design.
+`sim/udp/synth_check.tcl` performs an out-of-context synthesis for the Basys 3 `xc7a35tcpg236-1`. With Vivado 2025.2, the completed engine synthesized with zero errors and zero critical warnings, using approximately 2,768 slice LUTs, 2,897 slice registers, one RAMB36 (RX FIFO), and two RAMB18s (the TX frame banks). These figures are pre-place-and-route and may move slightly when integrated into the full design.

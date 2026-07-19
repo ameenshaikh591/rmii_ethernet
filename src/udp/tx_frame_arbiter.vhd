@@ -114,13 +114,11 @@ begin
                             end if;
                         end if;
                     when A_GRANT_ARP =>
-                        if i_arp_abort = '1' or
-                           (i_arp_data_valid = '1' and i_frame_data_ready = '1' and i_arp_last = '1') then
+                        if i_arp_abort = '1' or (i_arp_data_valid = '1' and i_frame_data_ready = '1' and i_arp_last = '1') then
                             state <= A_IDLE;
                         end if;
                     when A_GRANT_UDP =>
-                        if i_udp_abort = '1' or
-                           (i_udp_data_valid = '1' and i_frame_data_ready = '1' and i_udp_last = '1') then
+                        if i_udp_abort = '1' or (i_udp_data_valid = '1' and i_frame_data_ready = '1' and i_udp_last = '1') then
                             state <= A_IDLE;
                         end if;
                 end case;

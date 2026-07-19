@@ -7,7 +7,9 @@ module tb_udp_engine;
     localparam logic [47:0] PEER_MAC  = 48'h02_AA_BB_CC_DD_EE;
     localparam logic [31:0] LOCAL_IP = 32'hC0A8_0164; // 192.168.1.100
     localparam logic [31:0] PEER_IP  = 32'hC0A8_0132; // 192.168.1.50
-    localparam logic [31:0] DMA_BASE = 32'h0000_1000;
+    // Places the maximum-length TX0 payload at 0x3F00 so the read engine
+    // must split it at both a 4-KiB boundary and the 256-beat AXI limit.
+    localparam logic [31:0] DMA_BASE = 32'h0000_1BC8;
     localparam int TX0_ADDR = DMA_BASE + 9000;
 
     logic axi_clk = 0;
@@ -42,6 +44,11 @@ module tb_udp_engine;
     logic wr_wlast, wr_wvalid, wr_wready, wr_bvalid, wr_bready;
 
     byte unsigned memory [0:65535];
+    logic read_burst_active;
+    logic [31:0] read_burst_address;
+    logic [8:0] read_beats_remaining;
+    logic metadata_burst_seen;
+    int unsigned payload_burst_count;
     logic write_address_pending;
     logic [31:0] captured_write_address;
 
@@ -84,28 +91,72 @@ module tb_udp_engine;
         .M_AXI_WR_BREADY(wr_bready)
     );
 
-    assign rd_arready = !rd_rvalid;
+    assign rd_arready = !read_burst_active;
     assign wr_awready = !write_address_pending && !wr_bvalid;
     assign wr_wready = write_address_pending && !wr_bvalid;
 
     always @(posedge axi_clk) begin
         if (!axi_resetn) begin
+            read_burst_active <= 0;
+            read_burst_address <= 0;
+            read_beats_remaining <= 0;
+            metadata_burst_seen <= 0;
+            payload_burst_count <= 0;
             rd_rvalid <= 0;
             rd_rdata <= 0;
             rd_rresp <= 0;
             rd_rlast <= 0;
         end else begin
             if (rd_arvalid && rd_arready) begin
-                assert (rd_arlen == 0 && rd_arsize == 3'b010)
+                assert (rd_arsize == 3'b010 && rd_arburst == 2'b01)
                     else $fatal(1, "Unexpected read burst shape");
+                assert (({1'b0, rd_araddr[11:0]} +
+                         (({5'b00000, rd_arlen} + 13'd1) << 2)) <= 13'd4096)
+                    else $fatal(1, "AXI read burst crossed a 4-KiB boundary");
+
+                if (rd_araddr == TX0_ADDR) begin
+                    assert (rd_arlen == 8'd3)
+                        else $fatal(1, "TX metadata was not one four-beat burst");
+                    metadata_burst_seen <= 1;
+                end else if (rd_araddr >= TX0_ADDR + 16 &&
+                             rd_araddr < TX0_ADDR + 16 + 1472) begin
+                    case (payload_burst_count)
+                        0: assert (rd_araddr == TX0_ADDR + 16 && rd_arlen == 8'd63)
+                               else $fatal(1, "Incorrect first payload burst");
+                        1: assert (rd_araddr == 32'h0000_4000 && rd_arlen == 8'd255)
+                               else $fatal(1, "Incorrect second payload burst");
+                        2: assert (rd_araddr == 32'h0000_4400 && rd_arlen == 8'd47)
+                               else $fatal(1, "Incorrect third payload burst");
+                        default: $fatal(1,
+                            "Unexpected extra payload burst addr=%08x arlen=%0d count=%0d",
+                            rd_araddr, rd_arlen, payload_burst_count);
+                    endcase
+                    payload_burst_count <= payload_burst_count + 1;
+                end
+
+                read_burst_active <= 1;
+                read_burst_address <= rd_araddr;
+                read_beats_remaining <= {1'b0, rd_arlen} + 9'd1;
                 rd_rdata <= {memory[rd_araddr+3], memory[rd_araddr+2],
                              memory[rd_araddr+1], memory[rd_araddr]};
                 rd_rresp <= 2'b00;
-                rd_rlast <= 1;
+                rd_rlast <= (rd_arlen == 0);
                 rd_rvalid <= 1;
             end else if (rd_rvalid && rd_rready) begin
-                rd_rvalid <= 0;
-                rd_rlast <= 0;
+                if (read_beats_remaining == 1) begin
+                    read_burst_active <= 0;
+                    read_beats_remaining <= 0;
+                    rd_rvalid <= 0;
+                    rd_rlast <= 0;
+                end else begin
+                    read_burst_address <= read_burst_address + 4;
+                    read_beats_remaining <= read_beats_remaining - 1;
+                    rd_rdata <= {memory[read_burst_address+7],
+                                 memory[read_burst_address+6],
+                                 memory[read_burst_address+5],
+                                 memory[read_burst_address+4]};
+                    rd_rlast <= (read_beats_remaining == 2);
+                end
             end
         end
     end
@@ -241,7 +292,7 @@ module tb_udp_engine;
             bytes.push_back(ip[index*8 +: 8]);
     endtask
 
-    task automatic send_arp_reply;
+    task automatic send_arp_reply(input logic [47:0] target_mac);
         byte unsigned bytes[$];
         push_mac(bytes, LOCAL_MAC);
         push_mac(bytes, PEER_MAC);
@@ -252,7 +303,7 @@ module tb_udp_engine;
         bytes.push_back(8'h00); bytes.push_back(8'h02);
         push_mac(bytes, PEER_MAC);
         push_ip(bytes, PEER_IP);
-        push_mac(bytes, LOCAL_MAC);
+        push_mac(bytes, target_mac);
         push_ip(bytes, LOCAL_IP);
         send_ethernet_frame(bytes);
     endtask
@@ -317,13 +368,10 @@ module tb_udp_engine;
 
         memory_write_word(TX0_ADDR + 0, PEER_IP);
         memory_write_word(TX0_ADDR + 4, {16'd1234, 16'd4321});
-        memory_write_word(TX0_ADDR + 8, 32'd5);
+        memory_write_word(TX0_ADDR + 8, 32'd1472);
         memory_write_word(TX0_ADDR + 12, 0);
-        memory[TX0_ADDR + 16] = "H";
-        memory[TX0_ADDR + 17] = "E";
-        memory[TX0_ADDR + 18] = "L";
-        memory[TX0_ADDR + 19] = "L";
-        memory[TX0_ADDR + 20] = "O";
+        for (int index = 0; index < 1472; index++)
+            memory[TX0_ADDR + 16 + index] = index % 256;
         axil_write(32'h20, 1);
 
         collect_tx_frame(observed_frame);
@@ -333,23 +381,28 @@ module tb_udp_engine;
         expect_byte(46, 8'hC0); expect_byte(47, 8'hA8);
         expect_byte(48, 8'h01); expect_byte(49, 8'h32);
 
+        send_arp_reply(48'hDEAD_BEEF_0001);
+        repeat (100) @(posedge axi_clk);
+        assert (payload_burst_count == 0 && !tx_en)
+            else $fatal(1, "ARP reply with wrong target MAC was accepted");
+
         fork
-            send_arp_reply();
+            send_arp_reply(LOCAL_MAC);
             collect_tx_frame(observed_frame);
         join
-        assert (observed_frame.size() == 72)
+        assert (observed_frame.size() == 1526)
             else $fatal(1, "UDP frame length: got %0d", observed_frame.size());
         for (int index = 0; index < 6; index++)
             expect_byte(8 + index, PEER_MAC[(5-index)*8 +: 8]);
         expect_byte(20, 8'h08); expect_byte(21, 8'h00);
-        expect_byte(24, 8'h00); expect_byte(25, 8'h21); // IPv4 total length 33
+        expect_byte(24, 8'h05); expect_byte(25, 8'hDC); // IPv4 total length 1500
         expect_byte(34, 8'hC0); expect_byte(35, 8'hA8);
         expect_byte(36, 8'h01); expect_byte(37, 8'h64);
         expect_byte(38, 8'hC0); expect_byte(39, 8'hA8);
         expect_byte(40, 8'h01); expect_byte(41, 8'h32);
         expect_byte(42, 8'h04); expect_byte(43, 8'hD2); // source port 1234
         expect_byte(44, 8'h10); expect_byte(45, 8'hE1); // destination port 4321
-        expect_byte(46, 8'h00); expect_byte(47, 8'h0D); // UDP length 13
+        expect_byte(46, 8'h05); expect_byte(47, 8'hC8); // UDP length 1480
         checksum_sum = 0;
         for (int index = 22; index < 42; index += 2)
             checksum_sum += (observed_frame[index] << 8) | observed_frame[index+1];
@@ -357,8 +410,12 @@ module tb_udp_engine;
             checksum_sum = (checksum_sum & 16'hFFFF) + (checksum_sum >> 16);
         assert (checksum_sum[15:0] == 16'hFFFF)
             else $fatal(1, "Transmitted IPv4 checksum is invalid");
-        expect_byte(50, "H"); expect_byte(51, "E"); expect_byte(52, "L");
-        expect_byte(53, "L"); expect_byte(54, "O");
+        for (int index = 0; index < 1472; index++) begin
+            assert (observed_frame[50 + index] == index % 256)
+                else $fatal(1, "TX payload mismatch at byte %0d", index);
+        end
+        assert (metadata_burst_seen && payload_burst_count == 3)
+            else $fatal(1, "Expected AXI read bursts were not observed");
 
         send_udp_to_fpga();
         do begin
@@ -375,7 +432,7 @@ module tb_udp_engine;
         assert (memory[DMA_BASE+16] == "O" && memory[DMA_BASE+17] == "K")
             else $fatal(1, "RX payload mismatch");
 
-        $display("SUCCESS: ARP miss/reply, UDP TX, and UDP RX all completed");
+        $display("SUCCESS: burst TX, ARP miss/reply, and UDP RX all completed");
         $finish;
     end
 

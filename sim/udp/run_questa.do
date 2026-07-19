@@ -14,7 +14,10 @@ vcom -2008 ../../src/udp/udp_tx_engine.vhd
 vcom -2008 ../../src/udp/tx_frame_arbiter.vhd
 vcom -2008 ../../src/udp/udp_tx_buffer_mac.vhd
 vcom -2008 ../../src/udp/udp_engine.vhd
-vlog -sv tb_udp_engine.sv
+vlog -sv tb_udp_axi_reader.sv tb_udp_engine.sv
 vlog $env(XILINX_VIVADO)/data/verilog/src/glbl.v
+vsim -voptargs=+acc work.tb_udp_axi_reader work.glbl
+run -all
+quit -sim
 vsim -voptargs=+acc work.tb_udp_engine work.glbl
 run -all
