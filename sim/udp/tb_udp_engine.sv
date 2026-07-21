@@ -15,9 +15,7 @@ module tb_udp_engine;
     logic axi_clk = 0;
     logic axi_resetn = 0;
     logic ref_clk = 0;
-    logic rmii_resetn = 0;
     logic [1:0] rxd = 0;
-    logic rxer = 0;
     logic crs_dv = 0;
     logic [1:0] txd;
     logic tx_en;
@@ -62,9 +60,9 @@ module tb_udp_engine;
         .G_ARP_RETRY_INTERVAL_CYCLES(2000),
         .G_ARP_MAX_REQUESTS(3)
     ) dut (
-        .S_AXI_ACLK(axi_clk), .S_AXI_ARESETN(axi_resetn),
-        .i_ref_clk(ref_clk), .i_rmii_resetn(rmii_resetn),
-        .i_rxd(rxd), .i_rxer(rxer), .i_crs_dv(crs_dv),
+        .aclk(axi_clk), .aresetn(axi_resetn),
+        .i_ref_clk(ref_clk),
+        .i_rxd(rxd), .i_crs_dv(crs_dv),
         .o_txd(txd), .o_tx_en(tx_en),
         .S_AXI_AWADDR(s_awaddr), .S_AXI_AWPROT(s_awprot),
         .S_AXI_AWVALID(s_awvalid), .S_AXI_AWREADY(s_awready),
@@ -356,7 +354,6 @@ module tb_udp_engine;
 
         repeat (10) @(posedge axi_clk);
         axi_resetn <= 1;
-        rmii_resetn <= 1;
         repeat (10) @(posedge axi_clk);
 
         axil_write(32'h00, DMA_BASE);

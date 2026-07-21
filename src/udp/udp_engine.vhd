@@ -15,14 +15,12 @@ entity udp_engine is
     );
     port (
         -- AXI/protocol domain
-        S_AXI_ACLK    : in std_logic;
-        S_AXI_ARESETN : in std_logic;
+        aclk    : in std_logic;
+        aresetn : in std_logic;
 
         -- RMII 50 MHz reference-clock domain
         i_ref_clk     : in std_logic;
-        i_rmii_resetn : in std_logic;
         i_rxd         : in std_logic_vector(1 downto 0);
-        i_rxer        : in std_logic;
         i_crs_dv      : in std_logic;
         o_txd         : out std_logic_vector(1 downto 0);
         o_tx_en       : out std_logic;
@@ -134,12 +132,29 @@ architecture rtl of udp_engine is
     signal frame_ethertype, frame_length : std_logic_vector(15 downto 0);
     signal frame_data : std_logic_vector(31 downto 0);
     signal frame_valid_bytes : std_logic_vector(1 downto 0);
+
+    signal axi_to_rmii_resetn_sync1 : std_logic;
+    signal axi_to_rmii_resetn_sync2 : std_logic;
+
+    signal i_rmii_resetn : std_logic;
+    signal i_rxer        : std_logic;
 begin
-    rx_fifo_reset <= not (S_AXI_ARESETN and i_rmii_resetn);
+
+    process(i_ref_clk) is
+    begin
+        if rising_edge(i_ref_clk) then
+            axi_to_rmii_resetn_sync1 <= aresetn;
+            axi_to_rmii_resetn_sync2 <= axi_to_rmii_resetn_sync1;
+        end if;
+    end process;
+
+    i_rmii_resetn <= axi_to_rmii_resetn_sync2;
+    rx_fifo_reset <= not (aresetn and i_rmii_resetn);
+    i_rxer <= '0';
 
     status_inst : entity work.udp_status_manager
         port map (
-            axi_aclk => S_AXI_ACLK, axi_aresetn => S_AXI_ARESETN,
+            axi_aclk => aclk, axi_aresetn => aresetn,
             S_AXI_AWADDR => S_AXI_AWADDR, S_AXI_AWPROT => S_AXI_AWPROT,
             S_AXI_AWVALID => S_AXI_AWVALID, S_AXI_AWREADY => S_AXI_AWREADY,
             S_AXI_WDATA => S_AXI_WDATA, S_AXI_WSTRB => S_AXI_WSTRB,
@@ -191,14 +206,14 @@ begin
             sbiterr => open, underflow => open, wr_ack => open, wr_data_count => open,
             din => rx_fifo_din, wr_en => rx_fifo_write and not rx_fifo_full and not rx_fifo_wr_busy,
             rd_en => rx_fifo_read and not rx_fifo_empty and not rx_fifo_rd_busy,
-            wr_clk => i_ref_clk, rd_clk => S_AXI_ACLK, rst => rx_fifo_reset,
+            wr_clk => i_ref_clk, rd_clk => aclk, rst => rx_fifo_reset,
             sleep => '0', injectdbiterr => '0', injectsbiterr => '0'
         );
 
     rx_engine_inst : entity work.udp_rx_engine
         generic map (G_LOCAL_MAC => G_LOCAL_MAC)
         port map (
-            axi_aclk => S_AXI_ACLK, axi_aresetn => S_AXI_ARESETN,
+            axi_aclk => aclk, axi_aresetn => aresetn,
             i_fifo_data => rx_fifo_dout,
             i_fifo_empty => rx_fifo_empty or rx_fifo_rd_busy,
             o_fifo_read => rx_fifo_read,
@@ -224,7 +239,7 @@ begin
 
     writer_inst : entity work.udp_axi_writer
         port map (
-            axi_aclk => S_AXI_ACLK, axi_aresetn => S_AXI_ARESETN,
+            axi_aclk => aclk, axi_aresetn => aresetn,
             i_write_req_valid => write_req_valid, o_write_req_ready => write_req_ready,
             i_write_base_addr => write_base_addr, i_write_metadata => write_metadata,
             i_write_payload_length => write_payload_length,
@@ -244,7 +259,7 @@ begin
 
     reader_inst : entity work.udp_axi_reader
         port map (
-            axi_aclk => S_AXI_ACLK, axi_aresetn => S_AXI_ARESETN,
+            axi_aclk => aclk, axi_aresetn => aresetn,
             i_read_req_valid => read_req_valid, o_read_req_ready => read_req_ready,
             i_read_addr => read_addr, i_read_length => read_length,
             o_read_data_valid => read_data_valid, i_read_data_ready => read_data_ready,
@@ -265,7 +280,7 @@ begin
             G_MAX_REQUESTS => G_ARP_MAX_REQUESTS
         )
         port map (
-            axi_aclk => S_AXI_ACLK, axi_aresetn => S_AXI_ARESETN,
+            axi_aclk => aclk, axi_aresetn => aresetn,
             i_local_ipv4_addr => local_ip, i_network_config_changed => config_changed,
             i_arp_event_valid => arp_event_valid, i_arp_event_opcode => arp_event_opcode,
             i_arp_event_sender_mac => arp_event_sender_mac,
@@ -285,7 +300,7 @@ begin
 
     udp_tx_inst : entity work.udp_tx_engine
         port map (
-            axi_aclk => S_AXI_ACLK, axi_aresetn => S_AXI_ARESETN,
+            axi_aclk => aclk, axi_aresetn => aresetn,
             i_dma_base_addr => dma_base_addr, i_local_ipv4_addr => local_ip,
             i_subnet_mask => subnet_mask, i_default_gateway => gateway,
             i_tx_head_ptr => tx_head, i_tx_tail_ptr => tx_tail,
@@ -308,7 +323,7 @@ begin
 
     arbiter_inst : entity work.tx_frame_arbiter
         port map (
-            clk => S_AXI_ACLK, resetn => S_AXI_ARESETN,
+            clk => aclk, resetn => aresetn,
             i_arp_req_valid => arp_req_valid, o_arp_req_ready => arp_req_ready,
             i_arp_dest_mac => arp_dest_mac, i_arp_ethertype => arp_ethertype,
             i_arp_length => arp_length, i_arp_data_valid => arp_data_valid,
@@ -330,7 +345,7 @@ begin
     tx_buffer_mac_inst : entity work.udp_tx_buffer_mac
         generic map (G_LOCAL_MAC => G_LOCAL_MAC)
         port map (
-            axi_aclk => S_AXI_ACLK, axi_aresetn => S_AXI_ARESETN,
+            axi_aclk => aclk, axi_aresetn => aresetn,
             i_ref_clk => i_ref_clk, i_rmii_resetn => i_rmii_resetn,
             i_frame_req_valid => frame_req_valid, o_frame_req_ready => frame_req_ready,
             i_frame_dest_mac => frame_dest_mac, i_frame_ethertype => frame_ethertype,
